@@ -74,6 +74,8 @@ export interface PFGREPSettings {
     windowSize: { width: number; height: number };
     windowPosition: { x: number; y: number };
     maxResultWindows: number;
+    defaultLibraries?: string;
+    lastUsedLibraries?: string;
 }
 
 // Code for IBM i integration interfaces
@@ -106,6 +108,7 @@ export interface ResultTreeItem extends vscode.TreeItem {
     searchHit?: SearchHit;
     lineNumber?: number;
     memberPath?: string;
+    libraryName?: string; // Added for fixing tree expansion bug
 }
 
 // Modal interfaces
@@ -160,4 +163,26 @@ export interface MemberPathParts {
     member: string;
     extension: string;
     fullPath: string;
+}
+
+// Webview message interfaces
+export interface WebviewMessage {
+    command: string;
+    [key: string]: any;
+}
+
+export interface SearchFormData {
+    searchTerm: string;
+    libraries: string;
+    caseInsensitive: boolean;
+    fixedString: boolean;
+    wholeWords: boolean;
+    recursive: boolean;
+    showLineNumbers: boolean;
+    invertMatch: boolean;
+    silentErrors: boolean;
+    nonSourceFiles: boolean;
+    dontTrimWhitespace: boolean;
+    maxMatches?: string;
+    afterContext?: string;
 }

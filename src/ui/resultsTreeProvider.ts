@@ -72,7 +72,8 @@ export class PFGREPResultsTreeProvider implements vscode.TreeDataProvider<Result
             case 'library':
                 return Promise.resolve(this.getFileItems(element.label as string));
             case 'file':
-                return Promise.resolve(this.getMemberItems(element.label as string, element.description as string));
+                // Fixed: Pass the actual library name stored in the element
+                return Promise.resolve(this.getMemberItems(element.label as string, element.libraryName!));
             case 'member':
                 return Promise.resolve(this.getLineItems(element.memberPath!));
             default:
@@ -112,7 +113,7 @@ export class PFGREPResultsTreeProvider implements vscode.TreeDataProvider<Result
                 label: library,
                 description: `${hitCount} hits`,
                 tooltip: `Library: ${library} (${hits.length} members, ${hitCount} hits)`,
-                collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
+                collapsibleState: vscode.TreeItemCollapsibleState.Expanded, // Auto-expand libraries
                 contextValue: 'library',
                 iconPath: new vscode.ThemeIcon('library'),
                 children: hits
@@ -162,7 +163,8 @@ export class PFGREPResultsTreeProvider implements vscode.TreeDataProvider<Result
                 collapsibleState: vscode.TreeItemCollapsibleState.Collapsed,
                 contextValue: 'file',
                 iconPath: new vscode.ThemeIcon('file-directory'),
-                children: hits
+                children: hits,
+                libraryName: library // Store library name for getMemberItems
             };
             
             items.push(item);
@@ -207,9 +209,9 @@ export class PFGREPResultsTreeProvider implements vscode.TreeDataProvider<Result
                 memberPath: hit.path,
                 searchHit: hit,
                 command: {
-                    command: 'vscode.open',
+                    command: 'pfgrep-ibmi.openMemberAtLine',
                     title: 'Open Member',
-                    arguments: [vscode.Uri.parse(`member:${hit.path}`)]
+                    arguments: [hit.path]
                 }
             };
             

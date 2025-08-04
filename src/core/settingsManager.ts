@@ -34,8 +34,18 @@ export class SettingsManager {
             maxRecentSearches: this.context.globalState.get('pfgrep.maxRecentSearches', 10),
             windowSize: this.context.globalState.get('pfgrep.windowSize', { width: 500, height: 400 }),
             windowPosition: this.context.globalState.get('pfgrep.windowPosition', { x: 100, y: 100 }),
-            maxResultWindows: this.context.globalState.get('pfgrep.maxResultWindows', 5)
+            maxResultWindows: this.context.globalState.get('pfgrep.maxResultWindows', 5),
+            defaultLibraries: this.getDefaultLibrariesFromConfig(),
+            lastUsedLibraries: this.context.globalState.get('pfgrep.lastUsedLibraries', '')
         };
+    }
+
+    /**
+     * Get default libraries from VS Code configuration
+     */
+    private getDefaultLibrariesFromConfig(): string {
+        const config = vscode.workspace.getConfiguration('pfgrep-ibmi');
+        return config.get('defaultLibraries', '');
     }
 
     /**
@@ -50,7 +60,8 @@ export class SettingsManager {
             this.context.globalState.update('pfgrep.maxRecentSearches', settings.maxRecentSearches),
             this.context.globalState.update('pfgrep.windowSize', settings.windowSize),
             this.context.globalState.update('pfgrep.windowPosition', settings.windowPosition),
-            this.context.globalState.update('pfgrep.maxResultWindows', settings.maxResultWindows)
+            this.context.globalState.update('pfgrep.maxResultWindows', settings.maxResultWindows),
+            this.context.globalState.update('pfgrep.lastUsedLibraries', settings.lastUsedLibraries || '')
         ]);
     }
 
@@ -66,6 +77,15 @@ export class SettingsManager {
             .slice(0, 20); // Keep last 20 libraries
         
         settings.recentLibraries = updated;
+        await this.saveGlobalSettings(settings);
+    }
+
+    /**
+     * Update last used libraries (raw string format)
+     */
+    public async updateLastUsedLibraries(librariesString: string): Promise<void> {
+        const settings = this.getGlobalSettings();
+        settings.lastUsedLibraries = librariesString;
         await this.saveGlobalSettings(settings);
     }
 
@@ -136,6 +156,20 @@ export class SettingsManager {
     }
 
     /**
+     * Get default libraries from configuration
+     */
+    public getDefaultLibraries(): string {
+        return this.getDefaultLibrariesFromConfig();
+    }
+
+    /**
+     * Get last used libraries
+     */
+    public getLastUsedLibraries(): string {
+        return this.getGlobalSettings().lastUsedLibraries || '';
+    }
+
+    /**
      * Get window size
      */
     public getWindowSize(): { width: number; height: number } {
@@ -198,7 +232,9 @@ export class SettingsManager {
             maxRecentSearches: 10,
             windowSize: { width: 500, height: 400 },
             windowPosition: { x: 100, y: 100 },
-            maxResultWindows: 5
+            maxResultWindows: 5,
+            defaultLibraries: '',
+            lastUsedLibraries: ''
         };
         
         await this.saveGlobalSettings(defaultSettings);
