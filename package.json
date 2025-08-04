@@ -1,0 +1,145 @@
+{
+  "name": "pfgrep-ibmi",
+  "displayName": "PFGREP Search for IBM i",
+  "description": "Fast PFGREP-powered search for IBM i physical file members",
+  "version": "1.0.0",
+  "publisher": "RavisankarPandian",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oliyan/pfgrep-ibmi"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "ibmi",
+    "pfgrep",
+    "search",
+    "rpgle",
+    "cobol",
+    "cl"
+  ],
+  "activationEvents": [
+    "onCommand:pfgrep-ibmi.openSearch"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "pfgrep-ibmi.openSearch",
+        "title": "PFGREP Search",
+        "category": "IBM i",
+        "icon": "$(search)"
+      },
+      {
+        "command": "pfgrep-ibmi.exportResults",
+        "title": "Export PFGREP Results",
+        "category": "IBM i"
+      },
+      {
+        "command": "pfgrep-ibmi.clearResults",
+        "title": "Clear PFGREP Results",
+        "category": "IBM i"
+      },
+      {
+        "command": "pfgrep-ibmi.cancelSearch",
+        "title": "Cancel PFGREP Search",
+        "category": "IBM i"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "pfgrep-ibmi.openSearch",
+        "key": "ctrl+alt+f",
+        "mac": "cmd+alt+f",
+        "when": "code-for-ibmi:connected"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "pfgrepResults",
+          "name": "PFGREP Results",
+          "when": "pfgrep-ibmi:hasResults",
+          "contextualTitle": "PFGREP Search Results"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "pfgrep-ibmi.exportResults",
+          "when": "view == pfgrepResults",
+          "group": "navigation"
+        },
+        {
+          "command": "pfgrep-ibmi.clearResults",
+          "when": "view == pfgrepResults",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "PFGREP for IBM i",
+      "properties": {
+        "pfgrep-ibmi.recentLibraries": {
+          "type": "array",
+          "description": "Recently used libraries (global)",
+          "default": []
+        },
+        "pfgrep-ibmi.defaultOptions": {
+          "type": "object",
+          "description": "Default search options",
+          "default": {
+            "caseInsensitive": true,
+            "recursive": true,
+            "wholeWords": false,
+            "fixedString": false
+          }
+        },
+        "pfgrep-ibmi.maxRecentSearches": {
+          "type": "number",
+          "description": "Maximum number of recent searches to remember",
+          "default": 10
+        },
+        "pfgrep-ibmi.windowSize": {
+          "type": "object",
+          "description": "Search modal window size",
+          "default": {
+            "width": 500,
+            "height": 400
+          }
+        },
+        "pfgrep-ibmi.windowPosition": {
+          "type": "object",
+          "description": "Search modal window position",
+          "default": {
+            "x": 100,
+            "y": 100
+          }
+        },
+        "pfgrep-ibmi.maxResultWindows": {
+          "type": "number",
+          "description": "Maximum simultaneous result windows",
+          "default": 5
+        }
+      }
+    }
+  },
+  "extensionDependencies": [
+    "HalcyonTechLtd.code-for-ibmi"
+  ],
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.90.0",
+    "@types/node": "16.x",
+    "typescript": "^4.9.4"
+  }
+}
