@@ -41,15 +41,6 @@ export class ConnectionManager {
         console.log('Using PFGREP at:', this.pfgrepPath);
     }
 
-    /**
-     * Check if PFGREP is installed on the remote system
-     */
-    private static async validatePFGREP(connection: IBMiConnection): Promise<void> {
-        // Just use the known path - simple and direct
-        this.pfgrepPath = '/QOpenSys/pkgs/bin/pfgrep';
-        console.log(`Using PFGREP at: ${this.pfgrepPath}`);
-    }
-
     // Store the working PFGREP path
     private static pfgrepPath: string = 'pfgrep';
 
@@ -103,70 +94,111 @@ export class ConnectionManager {
     }
 
     /**
-     * Open a member using Code for IBM i's file system provider (proper CCSID handling)
+     * Open a member using Code for IBM i's proven commands (automatic CCSID + source type detection)
      */
     public static async openMemberAtLine(memberPath: string, lineNumber?: number): Promise<void> {
         try {
             console.log(`Opening member: ${memberPath}${lineNumber ? ` at line ${lineNumber}` : ''}`);
 
             // Parse the QSYS path to get components
-            // Input: /QSYS.LIB/LIBRARY.LIB/FILE.FILE/MEMBER.MBR
-            // Output: library, file, member, extension
             const pathParts = this.parseMemberPath(memberPath);
             console.log('Parsed path parts:', pathParts);
 
-            // Create proper URI using Code for IBM i's member file system
-            // Format: member:/LIBRARY/FILE/MEMBER.EXTENSION
-            const memberUri = vscode.Uri.from({
-                scheme: 'member',
-                path: `/${pathParts.library}/${pathParts.file}/${pathParts.member}.MBR`
-            });
+            // Get the connection to query member info
+            const connection = this.getConnection();
+            if (!connection) {
+                throw new Error('No IBM i connection available');
+            }
 
-            console.log('Opening member URI:', memberUri.toString());
+            // Query the actual member info to get the real source type
+            // This is exactly what Code for IBM i does internally
+            try {
+                console.log('Querying member info for source type...');
+                
+                const memberInfo = await connection.getContent().getMemberInfo(
+                    pathParts.library, 
+                    pathParts.file, 
+                    pathParts.member
+                );
 
-            // Open the document using Code for IBM i's file system provider
-            // This automatically handles CCSID conversion
-            const document = await vscode.workspace.openTextDocument(memberUri);
-            console.log('✅ Document opened successfully');
+                console.log('Member info result:', memberInfo);
 
-            // Show the document in an editor
-            const editor = await vscode.window.showTextDocument(document, {
-                preserveFocus: false,
-                preview: false // Don't open in preview mode
-            });
+                if (memberInfo) {
+                    // Use the real source type from the system, not guessed from file name
+                    const realSourceType = memberInfo.extension || 'MBR';
+                    const correctPath = `${pathParts.library}/${pathParts.file}/${pathParts.member}.${realSourceType}`;
+                    
+                    console.log('Using correct path with real source type:', correctPath);
 
-            console.log('✅ Editor opened successfully');
+                    // Open with the correct source type - this should give proper syntax highlighting
+                    await vscode.commands.executeCommand(
+                        'code-for-ibmi.openWithDefaultMode',
+                        { path: correctPath },
+                        undefined // Edit mode
+                    );
+
+                    console.log('✅ Successfully opened member with correct source type');
+
+                } else {
+                    // Fallback: if member info query fails, use simple path without extension
+                    console.log('Member info not found, using simple path fallback');
+                    const simplePath = `${pathParts.library}/${pathParts.file}/${pathParts.member}`;
+                    
+                    await vscode.commands.executeCommand(
+                        'code-for-ibmi.openWithDefaultMode',
+                        { path: simplePath },
+                        undefined
+                    );
+
+                    console.log('✅ Opened with simple path fallback');
+                }
+
+            } catch (memberInfoError: any) {
+                console.log('Member info query failed, trying simple path:', memberInfoError.message);
+                
+                // Fallback: use simple path without extension
+                const simplePath = `${pathParts.library}/${pathParts.file}/${pathParts.member}`;
+                
+                await vscode.commands.executeCommand(
+                    'code-for-ibmi.openWithDefaultMode',
+                    { path: simplePath },
+                    undefined
+                );
+
+                console.log('✅ Opened with simple path after member info failure');
+            }
 
             // Navigate to specific line if provided
             if (lineNumber && lineNumber > 0) {
-                // Small delay to ensure editor is fully loaded
                 setTimeout(() => {
                     try {
-                        const position = new vscode.Position(Math.max(0, lineNumber - 1), 0);
-                        
-                        // Set cursor position and selection
-                        editor.selection = new vscode.Selection(position, position);
-                        
-                        // Scroll to the line and center it
-                        editor.revealRange(
-                            new vscode.Range(position, position),
-                            vscode.TextEditorRevealType.InCenter
-                        );
-                        
-                        console.log(`✅ Navigated to line ${lineNumber}`);
+                        const editor = vscode.window.activeTextEditor;
+                        if (editor) {
+                            const position = new vscode.Position(Math.max(0, lineNumber - 1), 0);
+                            editor.selection = new vscode.Selection(position, position);
+                            editor.revealRange(
+                                new vscode.Range(position, position),
+                                vscode.TextEditorRevealType.InCenter
+                            );
+                            console.log(`✅ Navigated to line ${lineNumber}`);
+                        }
                     } catch (navError: any) {
                         console.error('Error navigating to line:', navError);
                     }
-                }, 300);
+                }, 500);
             }
 
         } catch (error: any) {
-            console.error('Error opening member with file system provider:', error);
+            console.error('Error opening member:', error);
             
-            // Fallback: Try the old command-based approach if file system fails
+            // Final fallback: try browse command with simple path
             try {
-                console.log('Falling back to command-based approach...');
-                await vscode.commands.executeCommand('code-for-ibmi.openEditable', memberPath);
+                console.log('Trying final fallback with browse command...');
+                const pathParts = this.parseMemberPath(memberPath);
+                const simplePath = `${pathParts.library}/${pathParts.file}/${pathParts.member}`;
+                
+                await vscode.commands.executeCommand('code-for-ibmi.browse', { path: simplePath });
+                console.log('✅ Final fallback succeeded');
                 
                 if (lineNumber && lineNumber > 0) {
                     setTimeout(() => {
@@ -179,10 +211,8 @@ export class ConnectionManager {
                     }, 500);
                 }
                 
-                console.log('✅ Fallback approach succeeded');
-                
             } catch (fallbackError: any) {
-                console.error('Fallback approach also failed:', fallbackError);
+                console.error('All fallback attempts failed:', fallbackError);
                 throw new Error(`Failed to open member: ${error.message}. Fallback: ${fallbackError.message}`);
             }
         }
@@ -235,42 +265,5 @@ export class ConnectionManager {
     public static getConnectionName(): string {
         const connection = this.getConnection();
         return connection?.currentConnectionName || 'Unknown';
-    }
-
-    /**
-     * Alternative member opening method for debugging CCSID issues
-     */
-    public static async debugOpenMember(memberPath: string): Promise<void> {
-        try {
-            console.log('=== DEBUG: Member Opening ===');
-            console.log('Path:', memberPath);
-            
-            // Get available commands
-            const commands = await vscode.commands.getCommands();
-            const ibmiCommands = commands.filter(cmd => cmd.includes('code-for-ibmi'));
-            console.log('Available Code for IBM i commands:', ibmiCommands);
-            
-            // Try to get connection info
-            const connection = this.getConnection();
-            if (connection) {
-                console.log('Connection name:', connection.currentConnectionName);
-                const config = connection.getConfig();
-                console.log('Connection config keys:', Object.keys(config || {}));
-            }
-            
-            // Parse the path
-            const pathParts = this.parseMemberPath(memberPath);
-            console.log('Parsed path:', pathParts);
-            
-            // Try the new URI approach
-            const memberUri = vscode.Uri.from({
-                scheme: 'member',
-                path: `/${pathParts.library}/${pathParts.file}/${pathParts.member}.MBR`
-            });
-            console.log('Member URI:', memberUri.toString());
-            
-        } catch (error: any) {
-            console.error('Debug info gathering failed:', error);
-        }
     }
 }
