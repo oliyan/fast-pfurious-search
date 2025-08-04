@@ -1,246 +1,227 @@
 # PFGREP Search for IBM i
 
-A powerful VS Code extension that provides fast searching of IBM i physical file members using the PFGREP utility. This extension integrates seamlessly with the [Code for IBM i](https://marketplace.visualstudio.com/items?itemName=HalcyonTechLtd.code-for-ibmi) extension to deliver superior search performance for IBM i developers.
+A powerful VS Code extension that brings blazing-fast IBM i source code search directly into your development environment. Built on top of the ultra-fast PFGREP utility, this extension provides lightning-quick search capabilities across IBM i libraries with an intuitive, modern interface.
 
 ## ✨ Features
 
-- **🚀 Fast Search**: Leverages PFGREP for high-performance searching of physical file members
-- **🎯 Smart Library Selection**: Browse and select libraries with tree view and multi-select
-- **🔧 Advanced Options**: Full access to PFGREP's powerful search capabilities
-- **📊 Hierarchical Results**: Organized results by Library → File → Member → Lines
-- **⚡ Quick Search**: Simple mode with sensible defaults for everyday searches
-- **🔄 Multiple Windows**: Support for multiple simultaneous search result windows
-- **📁 Export Results**: Export search results to text files for documentation
-- **🎨 Intuitive UI**: Clean, modal-based interface with keyboard shortcuts
+### 🚀 **Lightning-Fast Search**
+- **PFGREP Integration**: Harnesses the speed of IBM i's PFGREP utility for near-instantaneous search results
+- **Single-Click Search**: One modal window with all search options - no more multi-step wizards
+- **Real-time Results**: Results appear as fast as PFGREP can deliver them
 
-## 📋 Requirements
+### 🎯 **Intelligent Search Interface**
+- **Unified Search Modal**: All search options available in one clean, VS Code-themed interface
+- **Simplified Library Input**: Comma-separated library names with wildcard support (`LIB1,LIB2,PROD*,*DEV`)
+- **Smart Defaults**: Remembers your last used libraries and search terms
+- **Recent Search Terms**: Quick-select from your recent searches
 
-- **[Code for IBM i](https://marketplace.visualstudio.com/items?itemName=HalcyonTechLtd.code-for-ibmi)** extension installed and connected
-- **PFGREP** utility installed on your IBM i system
-- Active IBM i connection through Code for IBM i
+### 📁 **Hierarchical Results Display**
+- **Auto-Expanding Tree**: Results organized by Library → Source File → Member → Lines
+- **Instant Navigation**: Click any member to open with proper syntax highlighting
+- **Line-Level Precision**: Click specific line numbers to jump directly to matches
+- **Hit Counts**: See exactly how many matches in each library, file, and member
 
-### Installing PFGREP
+### 🔧 **Advanced Search Options**
+- **Case Insensitive Search** (default: enabled)
+- **Fixed String vs Regex** patterns
+- **Whole Words** matching
+- **Recursive Library** search (default: enabled)
+- **Line Numbers** display
+- **Maximum Matches** limiting
+- **Context Lines** (show lines after matches)
+- **Invert Matches** (find lines that DON'T match)
 
-If PFGREP is not installed on your IBM i system, install it using:
+### 🎨 **Perfect Code Integration**
+- **Real Source Type Detection**: Queries actual member source types for proper syntax highlighting
+- **Smart Member Opening**: Works with any source file type (QRPGLESRC, QCLLESRC, generic files like QBACKUP)
+- **Language Mode Detection**: Automatically detects RPGLE, CLLE, SQLRPGLE, COBOL, SQL, etc.
 
-```bash
-yum install pfgrep
-```
+### ⚙️ **Flexible Configuration**
+- **Default Libraries**: Set your most-used libraries in VS Code settings
+- **Search History**: Automatic persistence of recent searches and libraries
+- **Multiple Result Windows**: Keep multiple search results open simultaneously
+- **Export Results**: Save search results to text files
 
-Or download from the [official repository](https://github.com/SeidenGroup/pfgrep).
+## 🚀 Quick Start
 
-## 🚀 Getting Started
+### Prerequisites
+1. **Code for IBM i Extension**: This extension requires the Code for IBM i extension to be installed and connected
+2. **PFGREP Utility**: Must be installed on your IBM i system (`/QOpenSys/pkgs/bin/pfgrep`)
+
+### Installation
+1. Install from VS Code Marketplace
+2. Ensure you're connected to IBM i via Code for IBM i extension
+3. Press `Ctrl+Alt+F` (or `Cmd+Alt+F` on Mac) to start searching!
 
 ### Basic Usage
+1. **Open Search**: Press `Ctrl+Alt+F`
+2. **Enter Search Term**: Type what you're looking for
+3. **Specify Libraries**: Enter comma-separated library names (e.g., `MYLIB,PROD*,*TEST`)
+4. **Customize Options**: Toggle search options as needed
+5. **Search**: Press Enter or click the Search button
+6. **Navigate Results**: Click members to open, click lines to jump to specific locations
 
-1. **Open Search**: Press `Ctrl+Alt+F` (or `Cmd+Alt+F` on Mac) to open the search dialog
-2. **Select Mode**: Choose "Quick Search" for simple searches or "Advanced Search" for full control
-3. **Enter Search Term**: Type what you're looking for
-4. **Select Libraries**: Choose which libraries to search in
-5. **Configure Options**: Set search parameters (case sensitivity, whole words, etc.)
-6. **Search**: Click "Search" to execute
+## 📋 Search Options Reference
 
-### Quick Search Mode
+### Basic Options
+| Option | Description | Default |
+|--------|-------------|---------|
+| **Case Insensitive** | Ignore case when matching | ✅ Enabled |
+| **Fixed String** | Treat search term as literal text (not regex) | ❌ Disabled |
+| **Whole Words** | Match complete words only | ❌ Disabled |
+| **Recursive** | Search all libraries in the list | ✅ Enabled |
 
-Perfect for everyday searches with sensible defaults:
-- Case insensitive search enabled
-- Recursive search through libraries
-- Simple option selection
-- Ideal for most use cases
-
-### Advanced Search Mode
-
-Full control over PFGREP options:
-- All PFGREP flags available
-- Maximum matches limiting
-- After context lines
-- Invert matches
-- Non-source file searching
-- Custom line number display
-
-## 🎯 Search Features
-
-### Library Selection
-
-Multiple ways to select libraries:
-- **All Libraries**: Search across all accessible libraries
-- **Recent Libraries**: Quick selection from previously used libraries
-- **Browse Libraries**: Tree view with search and multi-select
-- **Custom Patterns**: Support for wildcards and comma-separated lists
-
-#### Wildcard Examples:
-- `PROD*` - All libraries starting with "PROD"
-- `*TEST` - All libraries ending with "TEST"
-- `LIB1,LIB2,LIB3` - Specific libraries
-- `PROD*,*DEV` - Multiple patterns
-
-### Search Options
-
-#### Quick Search Options:
-- **Case Insensitive** (`-i`): Ignore case differences
-- **Fixed String** (`-F`): Search for exact string (not regex)
-- **Whole Words** (`-w`): Match complete words only
-- **Recursive** (`-r`): Search recursively through libraries
-
-#### Advanced Options:
-- **Line Numbers** (`-n`): Show line numbers in results
-- **Max Matches** (`-m`): Limit number of matches
-- **After Context** (`-A`): Show lines after each match
-- **Invert Matches** (`-v`): Show non-matching lines
-- **Silent Errors** (`-s`): Suppress error messages
-- **Non-Source Files** (`-p`): Search non-source physical files
-
-## 📊 Results Management
-
-### Results Display
-
-Results are organized hierarchically:
-```
-📁 Library (12 hits)
-├── 📁 Source File (10 hits)
-│   ├── 📄 Member1 (4 hits)
-│   │   ├── 📍 Line 156: code content
-│   │   └── 📍 Line 234: more content
-│   └── 📄 Member2 (6 hits)
-└── 📁 Another File (2 hits)
-```
-
-### Sorting Options
-
-Sort results by:
-- **Name**: Alphabetical order (A-Z, Z-A)
-- **Hits**: Number of matches (High-Low, Low-High)
-- **Library**: Library name order
-- **Member**: Member name order
-
-### Actions
-
-- **Click Member**: Open member in editor (uses default mode from Code for IBM i settings)
-- **Click Line**: Open member at specific line with cursor positioned
-- **Export Results**: Save search results to text file
-- **Multiple Windows**: Keep multiple search results open simultaneously
-
-## ⌨️ Keyboard Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+Alt+F` | Open PFGREP search dialog |
-| `Escape` | Cancel current operation |
+### Advanced Options
+| Option | Description | Default |
+|--------|-------------|---------|
+| **Show Line Numbers** | Include line numbers in results | ❌ Disabled |
+| **Invert Matches** | Find lines that DON'T contain the search term | ❌ Disabled |
+| **Silent Errors** | Suppress error messages during search | ❌ Disabled |
+| **Non-Source Files** | Include non-source physical files | ❌ Disabled |
+| **Don't Trim Whitespace** | Preserve leading/trailing spaces | ❌ Disabled |
+| **Max Matches** | Limit the number of results returned | No limit |
+| **After Context Lines** | Show N lines after each match | 0 |
 
 ## ⚙️ Configuration
 
-The extension stores settings globally (not per workspace):
+### Extension Settings
 
-### Default Settings
+Add these settings to your VS Code configuration:
 
 ```json
 {
-  "pfgrep-ibmi.defaultOptions": {
-    "caseInsensitive": true,
-    "recursive": true,
-    "wholeWords": false,
-    "fixedString": false
-  },
-  "pfgrep-ibmi.maxRecentSearches": 10,
-  "pfgrep-ibmi.maxResultWindows": 5
+    "pfgrep-ibmi.defaultLibraries": "MYLIB,PROD*,*DEV",
+    "pfgrep-ibmi.maxRecentSearches": 10,
+    "pfgrep-ibmi.maxResultWindows": 5
 }
 ```
 
-### Settings Details
+### Settings Reference
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `pfgrep-ibmi.defaultLibraries` | Comma-separated list of default libraries to search | `""` |
+| `pfgrep-ibmi.maxRecentSearches` | Maximum number of recent search terms to remember | `10` |
+| `pfgrep-ibmi.maxResultWindows` | Maximum number of simultaneous result windows | `5` |
 
-- **Recent Libraries**: Automatically maintained list of recently used libraries
-- **Default Options**: Your preferred search option defaults
-- **Window Size/Position**: Modal window size and position (automatically saved)
-- **Max Recent Searches**: Number of search terms to remember
-- **Max Result Windows**: Maximum simultaneous result windows
+## 🖱️ Usage Examples
 
-## 🔧 Advanced Usage
-
-### Search Patterns
-
-PFGREP supports PCRE2 regular expressions when not using Fixed String mode:
-
-```regex
-^dcl-pr\s+\w+      # Procedure declarations
-\b[A-Z]{3}\d{3}\b   # Three letters followed by three digits
-(error|fail|exception) # Multiple terms
+### Library Patterns
+```
+MYLIB                    # Single library
+MYLIB,YOURLIB           # Multiple specific libraries  
+PROD*                   # All libraries starting with PROD
+*TEST                   # All libraries ending with TEST
+PROD*,*TEST,MYLIB       # Combination of patterns
 ```
 
-### Wildcard Library Selection
+### Search Patterns
+```
+dsply                   # Simple text search
+'Hello World'           # Phrase with spaces
+EXEC SQL                # SQL statements
+^DCL-                   # Lines starting with DCL- (regex)
+\bCVTDT\b              # Whole word CVTDT (regex)
+```
 
-Efficient library selection using patterns:
-- `PROD*,DEV*,TEST*` - All production, development, and test libraries
-- `*SRC` - All source libraries
-- `QRP*` - All libraries starting with QRP
+## 🌟 Key Benefits
 
-### Export Formats
+### **Speed**
+- **Instant Results**: PFGREP searches millions of lines in seconds
+- **No Indexing Required**: Search immediately without waiting for indexes
+- **Minimal Network Traffic**: Efficient search execution on IBM i
 
-Exported results include:
-- Search parameters used
-- Library/file structure
-- Line numbers and content
-- Timestamp and summary statistics
+### **Accuracy** 
+- **Real Source Type Detection**: Proper syntax highlighting for all member types
+- **Precise Line Navigation**: Jump directly to the exact line of interest
 
-## 🔍 Troubleshooting
+### **Usability**
+- **Single-Window Workflow**: Everything accessible from one modal
+- **Smart Memory**: Remembers your preferences and recent searches  
+- **Visual Organization**: Clear hierarchical display of results
+- **Seamless Integration**: Works perfectly with Code for IBM i ecosystem
 
-### Common Issues
+## 🔧 Troubleshooting
 
-**"PFGREP is not installed. Error"**
-- Install PFGREP: `yum install pfgrep`
-- Verify installation: `which pfgrep`
+### PFGREP Not Found
+If you get "PFGREP is not installed" error:
 
-**"Don't have authority to that library"**
-- Check your user profile authorities
-- Contact system administrator for library access
+1. Connect to IBM i terminal
+2. Install PFGREP.
+   You can either,
+   1. Follow [this link](https://github.com/SeidenGroup/pfgrep?tab=readme-ov-file#installation) to install pfgrep first. 
+   
+   <br> 
 
-**"No IBM i connection found"**
-- Install and configure Code for IBM i extension
-- Establish connection to IBM i system
+   or
+   
+   <br> 
 
-**Search is slow**
-- Reduce library scope
-- Use more specific search terms
-- Consider using Fixed String mode for literal searches
+   2. Run this in your IBM i terminal
+   ```sh
+   wget https://github.com/SeidenGroup/pfgrep/releases/download/v0.5.1/pfgrep-0.5.1-0seiden.ibmi7.2.ppc64.rpm && yum install pfgrep-0.5.1-0seiden.ibmi7.2.ppc64.rpm
+   ```
 
-### Performance Tips
+3. Verify installation: `which pfgrep`
 
-- Use specific library patterns instead of searching all libraries
-- Enable Fixed String mode for literal searches (faster than regex)
-- Use Whole Words option to reduce false matches
-- Limit Max Matches for very common terms
+### Connection Issues
+- Ensure Code for IBM i extension is connected
+- Check that you have proper authority to the libraries you're searching
+- Verify PFGREP has appropriate permissions
 
-## 📚 PFGREP Documentation
+### Search Results Not Opening
+- Verify Code for IBM i connection is active
+- Check that the member still exists in the source file
+- Ensure you have read access to the member
 
-For complete PFGREP documentation, see the [official repository](https://github.com/SeidenGroup/pfgrep).
+## 🆚 Comparison with Other Tools
 
-### Useful PFGREP Options
+| Feature | PFGREP-IBM i | Built-in VS Code Search | IBM i RDi |
+|---------|--------------|------------------------|-----------|
+| **Speed** | ⚡ Ultra-fast | 🐌 Slow over network | 🐌 Slow |
+| **IBM i Native** | ✅ Native PFGREP | ❌ Generic search | ✅ Native |
+| **Source Type Detection** | ✅ Automatic | ❌ Manual | ✅ Good |
+| **Modern UI** | ✅ VS Code integration | ✅ VS Code | ❌ Eclipse |
+| **Free** | ✅ Open source | ✅ Built-in | ❌ Licensed |
 
-| Flag | Description | Use Case |
-|------|-------------|----------|
-| `-i` | Case insensitive | Finding variables regardless of case |
-| `-w` | Whole words | Avoiding partial matches |
-| `-F` | Fixed string | Literal text search (faster) |
-| `-r` | Recursive | Search through entire libraries |
-| `-A 3` | After context | Show 3 lines after each match |
-| `-m 100` | Max matches | Limit results for common terms |
+## 🎯 Tips for Best Results
+
+### **Library Organization**
+- Use wildcard patterns to search related libraries efficiently
+- Set frequently-used libraries as defaults in settings
+- Use descriptive library naming conventions for better wildcard matching
+
+### **Search Strategies** 
+- Start with broad searches, then narrow down with specific terms
+- Use case-insensitive search for initial exploration
+- Enable "Whole Words" when searching for specific procedure names
+- Use regex patterns for complex matching scenarios
+
+### **Performance Optimization**
+- Limit searches to relevant libraries rather than searching all libraries
+- Use "Max Matches" to limit results for very common terms
+- Consider using "Fixed String" for literal text searches (faster than regex)
 
 ## 🤝 Contributing
 
-This extension integrates with the broader IBM i development ecosystem. For related projects:
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
-- [Code for IBM i](https://github.com/codefori/vscode-ibmi) - Main IBM i extension
-- [PFGREP](https://github.com/SeidenGroup/pfgrep) - Search utility
+### Development Setup
+1. Clone the repository
+2. Run `npm install`
+3. Open in VS Code and press F5 to debug
 
 ## 📝 License
 
-MIT License - see LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Credits
+## 🙏 Acknowledgments
 
-- **PFGREP**: Created by Seiden Group
-- **Code for IBM i**: Created by the Code for IBM i community
-- **Extension**: Built for the IBM i developer community
+- **Code for IBM i Team**: For the excellent foundational extension
+- **PFGREP Developers**: For creating such a fast and reliable search utility
+- **IBM i Community**: For continuous feedback and support
 
 ---
 
-**Enjoy faster, more powerful searching on IBM i!** 🚀
+**Happy Searching!** 🔍✨
+
+*Bring the power of IBM i's fastest search utility directly into your VS Code workflow.*

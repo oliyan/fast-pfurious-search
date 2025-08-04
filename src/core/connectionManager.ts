@@ -170,22 +170,8 @@ export class ConnectionManager {
 
             // Navigate to specific line if provided
             if (lineNumber && lineNumber > 0) {
-                setTimeout(() => {
-                    try {
-                        const editor = vscode.window.activeTextEditor;
-                        if (editor) {
-                            const position = new vscode.Position(Math.max(0, lineNumber - 1), 0);
-                            editor.selection = new vscode.Selection(position, position);
-                            editor.revealRange(
-                                new vscode.Range(position, position),
-                                vscode.TextEditorRevealType.InCenter
-                            );
-                            console.log(`✅ Navigated to line ${lineNumber}`);
-                        }
-                    } catch (navError: any) {
-                        console.error('Error navigating to line:', navError);
-                    }
-                }, 500);
+                // Wait for the editor to be ready and content to load
+                this.navigateToLineWhenReady(pathParts, lineNumber);
             }
 
         } catch (error: any) {
@@ -201,14 +187,7 @@ export class ConnectionManager {
                 console.log('✅ Final fallback succeeded');
                 
                 if (lineNumber && lineNumber > 0) {
-                    setTimeout(() => {
-                        const editor = vscode.window.activeTextEditor;
-                        if (editor) {
-                            const position = new vscode.Position(Math.max(0, lineNumber - 1), 0);
-                            editor.selection = new vscode.Selection(position, position);
-                            editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
-                        }
-                    }, 500);
+                    this.navigateToLineWhenReady(pathParts, lineNumber);
                 }
                 
             } catch (fallbackError: any) {
@@ -265,5 +244,96 @@ export class ConnectionManager {
     public static getConnectionName(): string {
         const connection = this.getConnection();
         return connection?.currentConnectionName || 'Unknown';
+    }
+
+    /**
+     * Smart navigation that waits for the editor to be properly loaded
+     */
+    private static async navigateToLineWhenReady(pathParts: any, lineNumber: number): Promise<void> {
+        const memberName = pathParts.member.toUpperCase();
+        const maxAttempts = 10; // Try for up to 15 seconds (10 * 1500ms)
+        let attempts = 0;
+
+        console.log(`Attempting to navigate to line ${lineNumber} in member ${memberName}`);
+
+        const tryNavigate = () => {
+            attempts++;
+            console.log(`Navigation attempt ${attempts}/${maxAttempts}`);
+
+            const editor = vscode.window.activeTextEditor;
+            
+            if (editor && editor.document) {
+                // Check if this is the right document by checking if the member name appears in the path
+                const editorPath = editor.document.uri.path.toUpperCase();
+                const memberInPath = editorPath.includes(memberName);
+                
+                console.log(`Editor found: ${editor.document.uri.toString()}`);
+                console.log(`Member name in path: ${memberInPath}`);
+                console.log(`Document line count: ${editor.document.lineCount}`);
+                
+                // Check if the document is properly loaded (has content and not just loading)
+                if (memberInPath && editor.document.lineCount > 1) {
+                    try {
+                        const targetLine = Math.max(0, Math.min(lineNumber - 1, editor.document.lineCount - 1));
+                        const position = new vscode.Position(targetLine, 0);
+                        
+                        // Set selection and reveal
+                        editor.selection = new vscode.Selection(position, position);
+                        editor.revealRange(
+                            new vscode.Range(position, position),
+                            vscode.TextEditorRevealType.InCenter
+                        );
+                        
+                        console.log(`✅ Successfully navigated to line ${lineNumber} (editor line ${targetLine + 1})`);
+                        return; // Success!
+                        
+                    } catch (navError: any) {
+                        console.error(`Error during navigation attempt ${attempts}:`, navError);
+                    }
+                } else {
+                    console.log(`Editor not ready yet - member in path: ${memberInPath}, line count: ${editor.document.lineCount}`);
+                }
+            } else {
+                console.log('No active editor found yet');
+            }
+
+            // If we haven't succeeded and haven't exceeded max attempts, try again
+            if (attempts < maxAttempts) {
+                setTimeout(tryNavigate, 1500); // Wait 1500ms before next attempt
+            } else {
+                console.log(`❌ Failed to navigate to line ${lineNumber} after ${maxAttempts} attempts`);
+            }
+        };
+
+        // Check if the member is already open first
+        const existingEditor = vscode.window.visibleTextEditors.find(editor => 
+            editor.document.uri.path.toUpperCase().includes(memberName)
+        );
+
+        if (existingEditor && existingEditor.document.lineCount > 1) {
+            // Member is already open and loaded, navigate immediately
+            console.log('Member already open, navigating immediately');
+            try {
+                const targetLine = Math.max(0, Math.min(lineNumber - 1, existingEditor.document.lineCount - 1));
+                const position = new vscode.Position(targetLine, 0);
+                
+                // Focus the editor first
+                await vscode.window.showTextDocument(existingEditor.document, {
+                    selection: new vscode.Range(position, position),
+                    viewColumn: existingEditor.viewColumn
+                });
+                
+                console.log(`✅ Immediately navigated to line ${lineNumber} in already-open member`);
+                
+            } catch (immediateNavError: any) {
+                console.error('Error in immediate navigation:', immediateNavError);
+                // Fall back to the retry method
+                setTimeout(tryNavigate, 100);
+            }
+        } else {
+            // Member is not open or not loaded yet, start the retry process
+            console.log('Member not open yet, starting retry process');
+            setTimeout(tryNavigate, 750); // Give a bit more time for initial load
+        }
     }
 }
