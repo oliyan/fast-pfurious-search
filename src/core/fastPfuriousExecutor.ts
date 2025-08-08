@@ -1,15 +1,15 @@
 import * as vscode from 'vscode';
-import { PFGREPOptions, SearchResults, SearchHit, IBMiConnection } from '../types/interfaces';
+import { FastPfuriousOptions, SearchResults, SearchHit, IBMiConnection } from '../types/interfaces';
 import { ConnectionManager } from './connectionManager';
 
-export class PFGREPExecutor {
+export class FastPfuriousExecutor {
     private static activeSearches: Map<string, vscode.CancellationTokenSource> = new Map();
 
     /**
      * Execute a PFGREP search with the given options
      */
     public static async executeSearch(
-        options: PFGREPOptions,
+        options: FastPfuriousOptions,
         searchId: string
     ): Promise<SearchResults> {
         const connection = ConnectionManager.getConnection();
@@ -26,7 +26,7 @@ export class PFGREPExecutor {
             const command = this.buildPFGREPCommand(options);
 
             // Show simple status (no progress bar per requirements)
-            vscode.window.setStatusBarMessage('🔍 PFGREP Search running...');
+            vscode.window.setStatusBarMessage('🔍 Fast & PF-urious Search running...');
 
             // Execute command
             const output = await this.executePFGREPCommand(
@@ -41,14 +41,14 @@ export class PFGREPExecutor {
             // Update status with results
             const totalHits = this.getTotalHits(results);
             vscode.window.setStatusBarMessage(
-                `✅ PFGREP found ${results.hits.length} files with ${totalHits} hits`,
+                `✅ Fast & PF-urious found ${results.hits.length} files with ${totalHits} hits`,
                 3000
             );
 
             return results;
 
         } catch (error: any) {
-            vscode.window.setStatusBarMessage(`❌ PFGREP failed: ${error.message}`, 5000);
+            vscode.window.setStatusBarMessage(`❌ Fast & PF-urious failed: ${error.message}`, 5000);
             throw error;
         } finally {
             this.activeSearches.delete(searchId);
@@ -80,7 +80,7 @@ export class PFGREPExecutor {
     /**
      * Build PFGREP command from options
      */
-    private static buildPFGREPCommand(options: PFGREPOptions): string {
+    private static buildPFGREPCommand(options: FastPfuriousOptions): string {
         const flags: string[] = [];
 
         // Main UI flags
@@ -215,7 +215,7 @@ export class PFGREPExecutor {
      */
     private static parsePFGREPOutput(
         output: string, 
-        options: PFGREPOptions, 
+        options: FastPfuriousOptions, 
         searchId: string
     ): SearchResults {
         const lines = output.split('\n').filter(line => line.trim());

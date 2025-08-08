@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
-import { PFGREPOptions, SearchResults, ResultTreeItem, SortOrder } from '../types/interfaces';
-import { PFGREPExecutor } from '../core/pfgrepExecutor';
+import { FastPfuriousOptions, SearchResults, ResultTreeItem, SortOrder } from '../types/interfaces';
+import { FastPfuriousExecutor } from '../core/fastPfuriousExecutor';
 import { ConnectionManager } from '../core/connectionManager';
 import { SettingsManager } from '../core/settingsManager';
-import { PFGREPResultsTreeProvider } from './resultsTreeProvider';
+import { FastPfuriousResultsTreeProvider } from './resultsTreeProvider';
 
-export class PFGREPResultsManager implements vscode.Disposable {
+export class FastPfuriousResultsManager implements vscode.Disposable {
     private context: vscode.ExtensionContext;
     private settingsManager: SettingsManager;
-    private treeProvider: PFGREPResultsTreeProvider;
+    private treeProvider: FastPfuriousResultsTreeProvider;
     private activeSearches: Map<string, vscode.CancellationTokenSource> = new Map();
     private searchResults: Map<string, SearchResults> = new Map();
     private activeResultsId: string | undefined;
@@ -19,20 +19,20 @@ export class PFGREPResultsManager implements vscode.Disposable {
     constructor(context: vscode.ExtensionContext) {
         this.context = context;
         this.settingsManager = new SettingsManager(context);
-        this.treeProvider = new PFGREPResultsTreeProvider(this.settingsManager);
+        this.treeProvider = new FastPfuriousResultsTreeProvider(this.settingsManager);
     }
 
     /**
      * Get the tree data provider for results
      */
-    public getTreeDataProvider(): PFGREPResultsTreeProvider {
+    public getTreeDataProvider(): FastPfuriousResultsTreeProvider {
         return this.treeProvider;
     }
 
     /**
-     * Execute a PFGREP search
+     * Execute a Fast & PF-urious search
      */
-    public async executeSearch(options: PFGREPOptions): Promise<void> {
+    public async executeSearch(options: FastPfuriousOptions): Promise<void> {
         const searchId = this.generateSearchId();
         
         try {
@@ -53,10 +53,10 @@ export class PFGREPResultsManager implements vscode.Disposable {
             }
 
             // Show search starting status
-            vscode.window.setStatusBarMessage('🔍 Starting PFGREP search...');
+            vscode.window.setStatusBarMessage('🔍 Starting Fast & PF-urious search...');
 
             // Execute search
-            const results = await PFGREPExecutor.executeSearch(options, searchId);
+            const results = await FastPfuriousExecutor.executeSearch(options, searchId);
 
             // Store results
             this.searchResults.set(searchId, results);
@@ -82,7 +82,7 @@ export class PFGREPResultsManager implements vscode.Disposable {
      */
     public cancelActiveSearch(): void {
         if (this.activeResultsId) {
-            PFGREPExecutor.cancelSearch(this.activeResultsId);
+            FastPfuriousExecutor.cancelSearch(this.activeResultsId);
             vscode.window.setStatusBarMessage('🛑 Search cancelled', 2000);
         }
     }
@@ -91,7 +91,7 @@ export class PFGREPResultsManager implements vscode.Disposable {
      * Cancel all active searches
      */
     public cancelAllSearches(): void {
-        PFGREPExecutor.cancelAllSearches();
+        FastPfuriousExecutor.cancelAllSearches();
         this.activeSearches.clear();
         vscode.window.setStatusBarMessage('🛑 All searches cancelled', 2000);
     }
@@ -114,7 +114,7 @@ export class PFGREPResultsManager implements vscode.Disposable {
         try {
             const content = this.formatResultsAsText(results);
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-            const defaultFilename = `pfgrep-${results.term}-${timestamp}.txt`;
+            const defaultFilename = `fast-pfurious-${results.term}-${timestamp}.txt`;
 
             const uri = await vscode.window.showSaveDialog({
                 defaultUri: vscode.Uri.file(defaultFilename),
@@ -246,7 +246,7 @@ export class PFGREPResultsManager implements vscode.Disposable {
      * Format results as text for export
      */
     private formatResultsAsText(results: SearchResults): string {
-        let output = `PFGREP Search Results\n`;
+        let output = `Fast & PF-urious Search Results\n`;
         output += `Search Term: "${results.term}"\n`;
         output += `Libraries: ${results.searchOptions.libraries.join(', ')}\n`;
         output += `Options: `;

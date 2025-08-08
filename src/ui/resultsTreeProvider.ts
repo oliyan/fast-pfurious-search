@@ -3,7 +3,7 @@ import { SearchResults, SearchHit, ResultTreeItem, SortOrder } from '../types/in
 import { SettingsManager } from '../core/settingsManager';
 import { ConnectionManager } from '../core/connectionManager';
 
-export class PFGREPResultsTreeProvider implements vscode.TreeDataProvider<ResultTreeItem> {
+export class FastPfuriousResultsTreeProvider implements vscode.TreeDataProvider<ResultTreeItem> {
     private _onDidChangeTreeData: vscode.EventEmitter<ResultTreeItem | undefined | null | void> = new vscode.EventEmitter<ResultTreeItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<ResultTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
 
@@ -209,7 +209,7 @@ export class PFGREPResultsTreeProvider implements vscode.TreeDataProvider<Result
                 memberPath: hit.path,
                 searchHit: hit,
                 command: {
-                    command: 'pfgrep-ibmi.openMemberAtLine',
+                    command: 'fast-pfurious-search.openMemberAtLine',
                     title: 'Open Member',
                     arguments: [hit.path]
                 }
@@ -244,7 +244,7 @@ export class PFGREPResultsTreeProvider implements vscode.TreeDataProvider<Result
                 lineNumber: line.number,
                 memberPath: memberPath,
                 command: {
-                    command: 'pfgrep-ibmi.openMemberAtLine',
+                    command: 'fast-pfurious-search.openMemberAtLine',
                     title: 'Go to Line',
                     arguments: [memberPath, line.number]
                 }
@@ -345,7 +345,7 @@ export class PFGREPResultsTreeProvider implements vscode.TreeDataProvider<Result
      */
     public static registerCommands(context: vscode.ExtensionContext): void {
         const openMemberAtLineCommand = vscode.commands.registerCommand(
-            'pfgrep-ibmi.openMemberAtLine',
+            'fast-pfurious-search.openMemberAtLine',
             async (memberPath: string, lineNumber?: number) => {
                 try {
                     await ConnectionManager.openMemberAtLine(memberPath, lineNumber);

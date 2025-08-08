@@ -1,28 +1,28 @@
 import * as vscode from 'vscode';
-import { PFGREPSearchModal } from './ui/searchModal';
-import { PFGREPResultsManager } from './ui/resultsManager';
-import { PFGREPResultsTreeProvider } from './ui/resultsTreeProvider';
+import { FastPfuriousSearchModal } from './ui/searchModal';
+import { FastPfuriousResultsManager } from './ui/resultsManager';
+import { FastPfuriousResultsTreeProvider } from './ui/resultsTreeProvider';
 import { ConnectionManager } from './core/connectionManager';
 import { SettingsManager } from './core/settingsManager';
 
-let resultsManager: PFGREPResultsManager;
+let resultsManager: FastPfuriousResultsManager;
 let settingsManager: SettingsManager;
-let searchModal: PFGREPSearchModal;
+let searchModal: FastPfuriousSearchModal;
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('PFGREP Search for IBM i is now active!');
+    console.log('Fast & PF-urious Search is now active!');
 
     // Initialize managers
-    resultsManager = new PFGREPResultsManager(context);
+    resultsManager = new FastPfuriousResultsManager(context);
     settingsManager = new SettingsManager(context);
-    searchModal = new PFGREPSearchModal(context, resultsManager);
+    searchModal = new FastPfuriousSearchModal(context, resultsManager);
 
     // Register tree provider commands
-    PFGREPResultsTreeProvider.registerCommands(context);
+    FastPfuriousResultsTreeProvider.registerCommands(context);
 
     // Register main search command
     const openSearchCommand = vscode.commands.registerCommand(
-        'pfgrep-ibmi.openSearch', 
+        'fast-pfurious-search.openSearch', 
         async () => {
             try {
                 // Validate environment
@@ -39,7 +39,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register export results command
     const exportResultsCommand = vscode.commands.registerCommand(
-        'pfgrep-ibmi.exportResults',
+        'fast-pfurious-search.exportResults',
         async () => {
             try {
                 await resultsManager.exportActiveResults();
@@ -51,16 +51,16 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register clear results command
     const clearResultsCommand = vscode.commands.registerCommand(
-        'pfgrep-ibmi.clearResults',
+        'fast-pfurious-search.clearResults',
         async () => {
             resultsManager.clearAllResults();
-            await vscode.commands.executeCommand('setContext', 'pfgrep-ibmi:hasResults', false);
+            await vscode.commands.executeCommand('setContext', 'fast-pfurious-search:hasResults', false);
         }
     );
 
     // Register cancel search command
     const cancelSearchCommand = vscode.commands.registerCommand(
-        'pfgrep-ibmi.cancelSearch',
+        'fast-pfurious-search.cancelSearch',
         async () => {
             resultsManager.cancelActiveSearch();
         }
@@ -68,7 +68,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register tree data provider for results
     const resultsTreeProvider = resultsManager.getTreeDataProvider();
-    const resultsTreeView = vscode.window.createTreeView('pfgrepResults', {
+    const resultsTreeView = vscode.window.createTreeView('fastPfuriousResults', {
         treeDataProvider: resultsTreeProvider,
         showCollapseAll: true,
         canSelectMany: false
@@ -77,11 +77,11 @@ export function activate(context: vscode.ExtensionContext) {
     // Set up context for when results are available
     resultsManager.onResultsChanged(() => {
         const hasResults = resultsManager.hasResults();
-        vscode.commands.executeCommand('setContext', 'pfgrep-ibmi:hasResults', hasResults);
+        vscode.commands.executeCommand('setContext', 'fast-pfurious-search:hasResults', hasResults);
     });
 
     const debugCommandsCommand = vscode.commands.registerCommand(
-        'pfgrep-ibmi.showIBMiCommands',
+        'fast-pfurious-search.showIBMiCommands',
         async () => {
             try {
                 const commands = await vscode.commands.getCommands();
@@ -133,13 +133,13 @@ export function activate(context: vscode.ExtensionContext) {
     settingsManager.initialize();
 
     // Show welcome message on first use
-    const hasShownWelcome = context.globalState.get('pfgrep.hasShownWelcome', false);
+    const hasShownWelcome = context.globalState.get('fast-pfurious-search.hasShownWelcome', false);
     if (!hasShownWelcome) {
         vscode.window.showInformationMessage(
-            'PFGREP Search for IBM i is ready! Press Ctrl+Alt+F to start searching.',
+            'Fast & PF-urious Search is ready! Press Ctrl+Alt+F to start searching.',
             'Got it!'
         ).then(() => {
-            context.globalState.update('pfgrep.hasShownWelcome', true);
+            context.globalState.update('fast-pfurious-search.hasShownWelcome', true);
         });
     }
 }
@@ -149,7 +149,3 @@ export function deactivate() {
         resultsManager.dispose();
     }
 }
-
-
-
-// Don't forget to add it to context.subscriptions.push(debugMemberOpenCommand);

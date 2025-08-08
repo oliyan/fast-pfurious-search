@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
-// PFGREP search options interface
-export interface PFGREPOptions {
+// Fast & PF-urious search options interface
+export interface FastPfuriousOptions {
     // Required
     searchTerm: string;
     libraries: string[];
@@ -47,7 +47,7 @@ export interface SearchHit {
 export interface SearchResults {
     term: string;
     hits: SearchHit[];
-    searchOptions: PFGREPOptions;
+    searchOptions: FastPfuriousOptions;
     timestamp: Date;
     searchId: string;
 }
@@ -65,10 +65,10 @@ export interface LibraryGroup {
 }
 
 // Settings interfaces
-export interface PFGREPSettings {
+export interface FastPfuriousSettings {
     recentLibraries: string[];
     recentSearchTerms: string[];
-    defaultOptions: Partial<PFGREPOptions>;
+    defaultOptions: Partial<FastPfuriousOptions>;
     resultsSortOrder: 'name' | 'hits' | 'library' | 'member';
     maxRecentSearches: number;
     windowSize: { width: number; height: number };
@@ -137,7 +137,7 @@ export enum SortOrder {
 // Event interfaces
 export interface SearchStartedEvent {
     searchId: string;
-    options: PFGREPOptions;
+    options: FastPfuriousOptions;
 }
 
 export interface SearchCompletedEvent {

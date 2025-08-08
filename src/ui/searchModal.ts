@@ -1,15 +1,15 @@
 import * as vscode from 'vscode';
-import { PFGREPOptions } from '../types/interfaces';
+import { FastPfuriousOptions } from '../types/interfaces';
 import { SettingsManager } from '../core/settingsManager';
-import { PFGREPResultsManager } from './resultsManager';
+import { FastPfuriousResultsManager } from './resultsManager';
 
-export class PFGREPSearchModal {
+export class FastPfuriousSearchModal {
     private context: vscode.ExtensionContext;
     private settingsManager: SettingsManager;
-    private resultsManager: PFGREPResultsManager;
+    private resultsManager: FastPfuriousResultsManager;
     private panel: vscode.WebviewPanel | undefined;
 
-    constructor(context: vscode.ExtensionContext, resultsManager: PFGREPResultsManager) {
+    constructor(context: vscode.ExtensionContext, resultsManager: FastPfuriousResultsManager) {
         this.context = context;
         this.settingsManager = new SettingsManager(context);
         this.resultsManager = resultsManager;
@@ -25,8 +25,8 @@ export class PFGREPSearchModal {
         }
 
         this.panel = vscode.window.createWebviewPanel(
-            'pfgrepSearch',
-            'PFGREP Search',
+            'fastPfuriousSearch',
+            'Fast & PF-urious Search',
             vscode.ViewColumn.One,
             {
                 enableScripts: true,
@@ -114,7 +114,7 @@ export class PFGREPSearchModal {
             }
 
             // Build search options
-            const options: PFGREPOptions = {
+            const options: FastPfuriousOptions = {
                 searchTerm: formData.searchTerm.trim(),
                 libraries,
                 caseInsensitive: formData.caseInsensitive,
@@ -183,7 +183,7 @@ export class PFGREPSearchModal {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PFGREP Search</title>
+    <title>Fast & PF-urious Search</title>
     <style>
         body {
             font-family: var(--vscode-font-family);
@@ -332,7 +332,7 @@ export class PFGREPSearchModal {
 </head>
 <body>
     <div class="container">
-        <h2>PFGREP Search</h2>
+        <h2>Fast & PF-urious Search</h2>
         
         <form id="searchForm">
             <div class="form-group">

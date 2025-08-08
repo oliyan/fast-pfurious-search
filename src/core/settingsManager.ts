@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { PFGREPSettings, PFGREPOptions } from '../types/interfaces';
+import { FastPfuriousSettings, FastPfuriousOptions } from '../types/interfaces';
 
 export class SettingsManager {
     private context: vscode.ExtensionContext;
@@ -20,23 +20,23 @@ export class SettingsManager {
     /**
      * Get global settings (not per-workspace as required)
      */
-    public getGlobalSettings(): PFGREPSettings {
+    public getGlobalSettings(): FastPfuriousSettings {
         return {
-            recentLibraries: this.context.globalState.get('pfgrep.recentLibraries', []),
-            recentSearchTerms: this.context.globalState.get('pfgrep.recentSearchTerms', []),
-            defaultOptions: this.context.globalState.get('pfgrep.defaultOptions', {
+            recentLibraries: this.context.globalState.get('fast-pfurious-search.recentLibraries', []),
+            recentSearchTerms: this.context.globalState.get('fast-pfurious-search.recentSearchTerms', []),
+            defaultOptions: this.context.globalState.get('fast-pfurious-search.defaultOptions', {
                 caseInsensitive: true,  // Default to case insensitive (per requirements)
                 recursive: true,        // Default to recursive (per requirements)
                 wholeWords: false,
                 fixedString: false
             }),
-            resultsSortOrder: this.context.globalState.get('pfgrep.resultsSortOrder', 'name'),
-            maxRecentSearches: this.context.globalState.get('pfgrep.maxRecentSearches', 10),
-            windowSize: this.context.globalState.get('pfgrep.windowSize', { width: 500, height: 400 }),
-            windowPosition: this.context.globalState.get('pfgrep.windowPosition', { x: 100, y: 100 }),
-            maxResultWindows: this.context.globalState.get('pfgrep.maxResultWindows', 5),
+            resultsSortOrder: this.context.globalState.get('fast-pfurious-search.resultsSortOrder', 'name'),
+            maxRecentSearches: this.context.globalState.get('fast-pfurious-search.maxRecentSearches', 10),
+            windowSize: this.context.globalState.get('fast-pfurious-search.windowSize', { width: 500, height: 400 }),
+            windowPosition: this.context.globalState.get('fast-pfurious-search.windowPosition', { x: 100, y: 100 }),
+            maxResultWindows: this.context.globalState.get('fast-pfurious-search.maxResultWindows', 5),
             defaultLibraries: this.getDefaultLibrariesFromConfig(),
-            lastUsedLibraries: this.context.globalState.get('pfgrep.lastUsedLibraries', '')
+            lastUsedLibraries: this.context.globalState.get('fast-pfurious-search.lastUsedLibraries', '')
         };
     }
 
@@ -44,24 +44,24 @@ export class SettingsManager {
      * Get default libraries from VS Code configuration
      */
     private getDefaultLibrariesFromConfig(): string {
-        const config = vscode.workspace.getConfiguration('pfgrep-ibmi');
+        const config = vscode.workspace.getConfiguration('fast-pfurious-search');
         return config.get('defaultLibraries', '');
     }
 
     /**
      * Save global settings
      */
-    public async saveGlobalSettings(settings: PFGREPSettings): Promise<void> {
+    public async saveGlobalSettings(settings: FastPfuriousSettings): Promise<void> {
         await Promise.all([
-            this.context.globalState.update('pfgrep.recentLibraries', settings.recentLibraries),
-            this.context.globalState.update('pfgrep.recentSearchTerms', settings.recentSearchTerms),
-            this.context.globalState.update('pfgrep.defaultOptions', settings.defaultOptions),
-            this.context.globalState.update('pfgrep.resultsSortOrder', settings.resultsSortOrder),
-            this.context.globalState.update('pfgrep.maxRecentSearches', settings.maxRecentSearches),
-            this.context.globalState.update('pfgrep.windowSize', settings.windowSize),
-            this.context.globalState.update('pfgrep.windowPosition', settings.windowPosition),
-            this.context.globalState.update('pfgrep.maxResultWindows', settings.maxResultWindows),
-            this.context.globalState.update('pfgrep.lastUsedLibraries', settings.lastUsedLibraries || '')
+            this.context.globalState.update('fast-pfurious-search.recentLibraries', settings.recentLibraries),
+            this.context.globalState.update('fast-pfurious-search.recentSearchTerms', settings.recentSearchTerms),
+            this.context.globalState.update('fast-pfurious-search.defaultOptions', settings.defaultOptions),
+            this.context.globalState.update('fast-pfurious-search.resultsSortOrder', settings.resultsSortOrder),
+            this.context.globalState.update('fast-pfurious-search.maxRecentSearches', settings.maxRecentSearches),
+            this.context.globalState.update('fast-pfurious-search.windowSize', settings.windowSize),
+            this.context.globalState.update('fast-pfurious-search.windowPosition', settings.windowPosition),
+            this.context.globalState.update('fast-pfurious-search.maxResultWindows', settings.maxResultWindows),
+            this.context.globalState.update('fast-pfurious-search.lastUsedLibraries', settings.lastUsedLibraries || '')
         ]);
     }
 
@@ -119,7 +119,7 @@ export class SettingsManager {
     /**
      * Update default search options
      */
-    public async updateDefaultOptions(options: Partial<PFGREPOptions>): Promise<void> {
+    public async updateDefaultOptions(options: Partial<FastPfuriousOptions>): Promise<void> {
         const settings = this.getGlobalSettings();
         settings.defaultOptions = { ...settings.defaultOptions, ...options };
         await this.saveGlobalSettings(settings);
@@ -151,7 +151,7 @@ export class SettingsManager {
     /**
      * Get default search options
      */
-    public getDefaultOptions(): Partial<PFGREPOptions> {
+    public getDefaultOptions(): Partial<FastPfuriousOptions> {
         return this.getGlobalSettings().defaultOptions;
     }
 
@@ -219,7 +219,7 @@ export class SettingsManager {
      * Reset all settings to defaults
      */
     public async resetToDefaults(): Promise<void> {
-        const defaultSettings: PFGREPSettings = {
+        const defaultSettings: FastPfuriousSettings = {
             recentLibraries: [],
             recentSearchTerms: [],
             defaultOptions: {
@@ -253,7 +253,7 @@ export class SettingsManager {
      */
     public async importSettings(jsonSettings: string): Promise<void> {
         try {
-            const settings = JSON.parse(jsonSettings) as PFGREPSettings;
+            const settings = JSON.parse(jsonSettings) as FastPfuriousSettings;
             
             // Validate settings structure
             if (this.validateSettings(settings)) {
@@ -270,7 +270,7 @@ export class SettingsManager {
     /**
      * Validate settings structure
      */
-    private validateSettings(settings: any): settings is PFGREPSettings {
+    private validateSettings(settings: any): settings is FastPfuriousSettings {
         return (
             settings &&
             Array.isArray(settings.recentLibraries) &&

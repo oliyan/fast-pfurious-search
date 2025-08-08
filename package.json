@@ -4,7 +4,8 @@
     "description": "Fueled by PFGREP - Blazing-fast IBM i source code search with an intuitive, modern interface",
     "version": "1.0.0",
     "license": "GPL-3.0-or-later",
-    "publisher": "Ravisankar Pandian",
+    "publisher": "ravisankarpandian",
+    "icon": "icon.png",
     "repository": {
         "type": "git",
         "url": "https://github.com/oliyan/fast-pfurious-search"
