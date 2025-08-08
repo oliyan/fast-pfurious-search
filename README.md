@@ -178,7 +178,7 @@ If you get "PFGREP is not installed" error:
 
 ## 🆚 Comparison with Other Tools
 
-| Feature | PFGREP-IBM i | Built-in VS Code Search | IBM i RDi |
+| Feature | Fast & PF-urious search | Built-in VS Code Search | IBM i RDi |
 |---------|--------------|------------------------|-----------|
 | **Speed** | ⚡ Ultra-fast | 🐌 Slow over network | 🐌 Slow |
 | **IBM i Native** | ✅ Native PFGREP | ❌ Generic search | ✅ Native |
@@ -220,7 +220,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - **Code for IBM i Team**: For the excellent foundational extension
-- **PFGREP Developers**: For creating such a fast and reliable search utility
+- **Seiden Group**: For porting the awesome GREP tool to IBMi
 - **IBM i Community**: For continuous feedback and support
 
 ---
