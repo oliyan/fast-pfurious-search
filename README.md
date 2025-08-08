@@ -1,6 +1,9 @@
-# PFGREP Search for IBM i
+# Fast & PF-urious search
+> Fueled by PFGREP
 
-A powerful VS Code extension that brings blazing-fast IBM i source code search directly into your development environment. Built on top of the ultra-fast PFGREP utility, this extension provides lightning-quick search capabilities across IBM i libraries with an intuitive, modern interface.
+Built to work seamlessly with Code for IBM i, this extension brings blazing-fast IBM i source code search directly into your development environment. Built on top of the ultra-fast PFGREP utility (thanks to [seiden group](https://github.com/SeidenGroup)), this extension provides lightning-quick search capabilities across IBM i libraries with an intuitive, modern interface.
+
+The name "Fast & PF-urious" isn't just a cheeky nod to the [Fast and Furious](https://en.wikipedia.org/wiki/Fast_%26_Furious) franchise; it perfectly captures that adrenaline rush when you're blazing through thousands of source members with surgical precision. The "PF" represents Physical Files (because that's what we're actually searching), while the "urious" part captures that satisfying moment when technology finally works the way it should have from day one. Because life's too short for slow searches, and hitting 25 + Shift F1 on PDM won't just cut it. 
 
 ## ✨ Features
 

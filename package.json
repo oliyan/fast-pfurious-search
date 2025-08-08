@@ -1,12 +1,13 @@
 {
-    "name": "pfgrep-ibmi",
-    "displayName": "PFGREP Search for IBM i",
-    "description": "Fast searching of IBM i physical file members using PFGREP utility",
+    "name": "fast-pfurious-search",
+    "displayName": "Fast & PF-urious search",
+    "description": "Fueled by PFGREP - Blazing-fast IBM i source code search with an intuitive, modern interface",
     "version": "1.0.0",
+    "license": "GPL-3.0-or-later",
     "publisher": "your-publisher-name",
     "repository": {
-    "type": "git",
-    "url": "https://github.com/oliyan/pfgrep-ibmi"
+        "type": "git",
+        "url": "https://github.com/oliyan/fast-pfurious-search"
     },
     "engines": {
         "vscode": "^1.90.0"
@@ -20,38 +21,40 @@
         "pfgrep",
         "search",
         "rpg",
-        "cobol"
+        "cobol",
+        "fast",
+        "furious"
     ],
     "main": "./dist/extension.js",
     "contributes": {
         "commands": [
             {
-                "command": "pfgrep-ibmi.openSearch",
-                "title": "PFGREP Search",
-                "category": "PFGREP"
+                "command": "fast-pfurious-search.openSearch",
+                "title": "Fast & PF-urious Search",
+                "category": "Fast & PF-urious"
             },
             {
-                "command": "pfgrep-ibmi.exportResults",
+                "command": "fast-pfurious-search.exportResults",
                 "title": "Export Results",
-                "category": "PFGREP",
+                "category": "Fast & PF-urious",
                 "icon": "$(export)"
             },
             {
-                "command": "pfgrep-ibmi.clearResults",
+                "command": "fast-pfurious-search.clearResults",
                 "title": "Clear Results",
-                "category": "PFGREP",
+                "category": "Fast & PF-urious",
                 "icon": "$(clear-all)"
             },
             {
-                "command": "pfgrep-ibmi.cancelSearch",
+                "command": "fast-pfurious-search.cancelSearch",
                 "title": "Cancel Search",
-                "category": "PFGREP",
+                "category": "Fast & PF-urious",
                 "icon": "$(stop)"
             }
         ],
         "keybindings": [
             {
-                "command": "pfgrep-ibmi.openSearch",
+                "command": "fast-pfurious-search.openSearch",
                 "key": "ctrl+alt+f",
                 "mac": "cmd+alt+f",
                 "when": "true"
@@ -60,36 +63,36 @@
         "views": {
             "explorer": [
                 {
-                    "id": "pfgrepResults",
-                    "name": "PFGREP Results",
-                    "when": "pfgrep-ibmi:hasResults"
+                    "id": "fastPfuriousResults",
+                    "name": "Fast & PF-urious Results",
+                    "when": "fast-pfurious-search:hasResults"
                 }
             ]
         },
         "menus": {
             "view/title": [
                 {
-                    "command": "pfgrep-ibmi.exportResults",
-                    "when": "view == pfgrepResults && pfgrep-ibmi:hasResults",
+                    "command": "fast-pfurious-search.exportResults",
+                    "when": "view == fastPfuriousResults && fast-pfurious-search:hasResults",
                     "group": "navigation@1"
                 },
                 {
-                    "command": "pfgrep-ibmi.clearResults",
-                    "when": "view == pfgrepResults && pfgrep-ibmi:hasResults",
+                    "command": "fast-pfurious-search.clearResults",
+                    "when": "view == fastPfuriousResults && fast-pfurious-search:hasResults",
                     "group": "navigation@2"
                 }
             ]
         },
         "configuration": {
-            "title": "PFGREP Search",
+            "title": "Fast & PF-urious Search",
             "properties": {
-                "pfgrep-ibmi.defaultLibraries": {
+                "fast-pfurious-search.defaultLibraries": {
                     "type": "string",
                     "default": "",
                     "description": "Default libraries to search (comma-separated, supports wildcards). Example: MYLIB,PROD*,DEV*",
                     "scope": "application"
                 },
-                "pfgrep-ibmi.maxRecentSearches": {
+                "fast-pfurious-search.maxRecentSearches": {
                     "type": "number",
                     "default": 10,
                     "description": "Maximum number of recent search terms to remember",
@@ -97,7 +100,7 @@
                     "maximum": 50,
                     "scope": "application"
                 },
-                "pfgrep-ibmi.maxResultWindows": {
+                "fast-pfurious-search.maxResultWindows": {
                     "type": "number",
                     "default": 5,
                     "description": "Maximum number of simultaneous result windows",
@@ -109,7 +112,7 @@
         }
     },
     "activationEvents": [
-        "onCommand:pfgrep-ibmi.openSearch"
+        "onCommand:fast-pfurious-search.openSearch"
     ],
     "extensionDependencies": [
         "HalcyonTechLtd.code-for-ibmi"
