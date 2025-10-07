@@ -1,4 +1,4 @@
-# Fast & PF-urious search
+# Fast & PFurious search
 > Fueled by PFGREP
 
 Built to work seamlessly with Code for IBM i, this extension brings blazing-fast IBM i source code search directly into your development environment. Built on top of the ultra-fast PFGREP utility (thanks to [seiden group](https://github.com/SeidenGroup)), this extension provides lightning-quick search capabilities across IBM i libraries with an intuitive, modern interface.
@@ -215,7 +215,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GPL v3 License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
