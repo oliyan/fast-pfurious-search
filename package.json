@@ -99,18 +99,10 @@
                 },
                 "fast-pfurious-search.maxRecentSearches": {
                     "type": "number",
-                    "default": 10,
+                    "default": 5,
                     "description": "Maximum number of recent search terms to remember",
                     "minimum": 1,
                     "maximum": 50,
-                    "scope": "application"
-                },
-                "fast-pfurious-search.maxResultWindows": {
-                    "type": "number",
-                    "default": 5,
-                    "description": "Maximum number of simultaneous result windows",
-                    "minimum": 1,
-                    "maximum": 20,
                     "scope": "application"
                 }
             }

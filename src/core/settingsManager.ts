@@ -31,10 +31,9 @@ export class SettingsManager {
                 fixedString: false
             }),
             resultsSortOrder: this.context.globalState.get('fast-pfurious-search.resultsSortOrder', 'name'),
-            maxRecentSearches: this.context.globalState.get('fast-pfurious-search.maxRecentSearches', 10),
+            maxRecentSearches: this.context.globalState.get('fast-pfurious-search.maxRecentSearches', 5),
             windowSize: this.context.globalState.get('fast-pfurious-search.windowSize', { width: 500, height: 400 }),
             windowPosition: this.context.globalState.get('fast-pfurious-search.windowPosition', { x: 100, y: 100 }),
-            maxResultWindows: this.context.globalState.get('fast-pfurious-search.maxResultWindows', 5),
             defaultLibraries: this.getDefaultLibrariesFromConfig(),
             lastUsedLibraries: this.context.globalState.get('fast-pfurious-search.lastUsedLibraries', '')
         };
@@ -60,22 +59,22 @@ export class SettingsManager {
             this.context.globalState.update('fast-pfurious-search.maxRecentSearches', settings.maxRecentSearches),
             this.context.globalState.update('fast-pfurious-search.windowSize', settings.windowSize),
             this.context.globalState.update('fast-pfurious-search.windowPosition', settings.windowPosition),
-            this.context.globalState.update('fast-pfurious-search.maxResultWindows', settings.maxResultWindows),
             this.context.globalState.update('fast-pfurious-search.lastUsedLibraries', settings.lastUsedLibraries || '')
         ]);
     }
 
     /**
      * Update recent libraries (global, not per-workspace)
+     * Now stores complete library patterns as strings, not individual libraries
      */
-    public async updateRecentLibraries(selectedLibraries: string[]): Promise<void> {
+    public async updateRecentLibraries(librariesPattern: string): Promise<void> {
         const settings = this.getGlobalSettings();
-        
-        // Add new libraries to front of list, remove duplicates
-        const updated = [...selectedLibraries, ...settings.recentLibraries]
-            .filter((lib, index, arr) => arr.indexOf(lib) === index)
-            .slice(0, 20); // Keep last 20 libraries
-        
+
+        // Add new pattern to front of list, remove duplicates
+        const updated = [librariesPattern, ...settings.recentLibraries]
+            .filter((pattern, index, arr) => arr.indexOf(pattern) === index)
+            .slice(0, 5); // Keep last 5 library patterns
+
         settings.recentLibraries = updated;
         await this.saveGlobalSettings(settings);
     }
@@ -183,12 +182,6 @@ export class SettingsManager {
         return this.getGlobalSettings().windowPosition;
     }
 
-    /**
-     * Get max result windows
-     */
-    public getMaxResultWindows(): number {
-        return this.getGlobalSettings().maxResultWindows;
-    }
 
     /**
      * Get results sort order
@@ -229,14 +222,13 @@ export class SettingsManager {
                 fixedString: false
             },
             resultsSortOrder: 'name',
-            maxRecentSearches: 10,
+            maxRecentSearches: 5,
             windowSize: { width: 500, height: 400 },
             windowPosition: { x: 100, y: 100 },
-            maxResultWindows: 5,
             defaultLibraries: '',
             lastUsedLibraries: ''
         };
-        
+
         await this.saveGlobalSettings(defaultSettings);
     }
 
@@ -279,8 +271,7 @@ export class SettingsManager {
             typeof settings.resultsSortOrder === 'string' &&
             typeof settings.maxRecentSearches === 'number' &&
             typeof settings.windowSize === 'object' &&
-            typeof settings.windowPosition === 'object' &&
-            typeof settings.maxResultWindows === 'number'
+            typeof settings.windowPosition === 'object'
         );
     }
 }
