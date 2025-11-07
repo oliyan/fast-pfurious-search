@@ -73,7 +73,6 @@ export interface FastPfuriousSettings {
     maxRecentSearches: number;
     windowSize: { width: number; height: number };
     windowPosition: { x: number; y: number };
-    maxResultWindows: number;
     defaultLibraries?: string;
     lastUsedLibraries?: string;
 }

@@ -66,17 +66,17 @@ export class FastPfuriousSearchModal {
     private async sendDefaults(): Promise<void> {
         if (!this.panel) return;
 
-        const defaultLibraries = this.settingsManager.getDefaultLibraries();
-        const lastUsedLibraries = this.settingsManager.getLastUsedLibraries();
         const recentSearchTerms = this.settingsManager.getRecentSearchTerms();
+        const recentLibraries = this.settingsManager.getRecentLibraries();
         const defaultOptions = this.settingsManager.getDefaultOptions();
 
         this.panel.webview.postMessage({
             command: 'setDefaults',
             data: {
-                libraries: lastUsedLibraries || defaultLibraries || '',
-                searchTerm: recentSearchTerms[0] || '',
-                recentSearchTerms: recentSearchTerms.slice(0, 5),
+                libraries: '', // Always start with empty libraries field
+                searchTerm: '', // Don't pre-populate search term either
+                recentSearchTerms: recentSearchTerms.slice(0, 5), // Max 5 recent search terms
+                recentLibraries: recentLibraries.slice(0, 5), // Max 5 recent library patterns
                 options: {
                     caseInsensitive: defaultOptions.caseInsensitive ?? true,
                     fixedString: defaultOptions.fixedString ?? false,
@@ -130,8 +130,8 @@ export class FastPfuriousSearchModal {
                 afterContext: formData.afterContext && formData.afterContext > 0 ? parseInt(formData.afterContext) : undefined
             };
 
-            // Update last used libraries and search history
-            await this.settingsManager.updateLastUsedLibraries(formData.libraries);
+            // Update recent libraries (complete pattern) and search history
+            await this.settingsManager.updateRecentLibraries(formData.libraries);
             await this.settingsManager.updateSearchHistory(formData.searchTerm);
 
             // Show searching status in webview
@@ -234,7 +234,7 @@ export class FastPfuriousSearchModal {
             margin-top: 8px;
         }
         
-        .recent-term {
+        .recent-term, .recent-library {
             background-color: var(--vscode-button-secondaryBackground);
             color: var(--vscode-button-secondaryForeground);
             border: none;
@@ -243,8 +243,8 @@ export class FastPfuriousSearchModal {
             cursor: pointer;
             font-size: 12px;
         }
-        
-        .recent-term:hover {
+
+        .recent-term:hover, .recent-library:hover {
             background-color: var(--vscode-button-secondaryHoverBackground);
         }
         
@@ -345,6 +345,7 @@ export class FastPfuriousSearchModal {
                 <label for="libraries">Libraries:</label>
                 <input type="text" id="libraries" name="libraries" placeholder="LIB1,LIB2,PROD*,*DEV" required>
                 <div class="placeholder-text">Comma-separated library names or patterns (wildcards supported)</div>
+                <div class="recent-terms" id="recentLibraries"></div>
             </div>
             
             <div class="form-group">
@@ -458,11 +459,29 @@ export class FastPfuriousSearchModal {
             });
         });
         
-        // Handle recent term clicks
+        // Handle recent search term clicks (replaces text)
         function addRecentTermClickHandler() {
             document.querySelectorAll('.recent-term').forEach(button => {
                 button.addEventListener('click', function() {
                     document.getElementById('searchTerm').value = this.textContent;
+                });
+            });
+        }
+
+        // Handle recent library clicks (appends text)
+        function addRecentLibraryClickHandler() {
+            document.querySelectorAll('.recent-library').forEach(button => {
+                button.addEventListener('click', function() {
+                    const librariesInput = document.getElementById('libraries');
+                    const currentValue = librariesInput.value.trim();
+                    const newLibrary = this.textContent;
+
+                    // Append to existing text with comma separator if field is not empty
+                    if (currentValue) {
+                        librariesInput.value = currentValue + ',' + newLibrary;
+                    } else {
+                        librariesInput.value = newLibrary;
+                    }
                 });
             });
         }
@@ -488,7 +507,7 @@ export class FastPfuriousSearchModal {
                         }
                     });
                     
-                    // Add recent terms
+                    // Add recent search terms
                     const recentTermsContainer = document.getElementById('recentTerms');
                     recentTermsContainer.innerHTML = '';
                     if (data.recentSearchTerms && data.recentSearchTerms.length > 0) {
@@ -500,6 +519,20 @@ export class FastPfuriousSearchModal {
                             recentTermsContainer.appendChild(button);
                         });
                         addRecentTermClickHandler();
+                    }
+
+                    // Add recent libraries
+                    const recentLibrariesContainer = document.getElementById('recentLibraries');
+                    recentLibrariesContainer.innerHTML = '';
+                    if (data.recentLibraries && data.recentLibraries.length > 0) {
+                        data.recentLibraries.forEach(libraryPattern => {
+                            const button = document.createElement('button');
+                            button.className = 'recent-library';
+                            button.textContent = libraryPattern;
+                            button.type = 'button';
+                            recentLibrariesContainer.appendChild(button);
+                        });
+                        addRecentLibraryClickHandler();
                     }
                     break;
                     

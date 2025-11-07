@@ -34,23 +34,10 @@ export class FastPfuriousResultsManager implements vscode.Disposable {
      */
     public async executeSearch(options: FastPfuriousOptions): Promise<void> {
         const searchId = this.generateSearchId();
-        
+
         try {
-            // Check if we're at max windows
-            const maxWindows = this.settingsManager.getMaxResultWindows();
-            if (this.searchResults.size >= maxWindows) {
-                const proceed = await vscode.window.showWarningMessage(
-                    `Maximum of ${maxWindows} result windows allowed. Clear existing results?`,
-                    'Yes, clear oldest',
-                    'Cancel'
-                );
-                
-                if (proceed === 'Yes, clear oldest') {
-                    this.clearOldestResults();
-                } else {
-                    return;
-                }
-            }
+            // Clear all existing results - only keep one result window at a time
+            this.clearAllResults();
 
             // Show search starting status
             vscode.window.setStatusBarMessage('🔍 Starting Fast & PF-urious search...');
