@@ -239,14 +239,13 @@ export class FastPfuriousResultsManager implements vscode.Disposable {
         output += `Options: `;
         
         const opts: string[] = [];
-        if (results.searchOptions.caseInsensitive) opts.push('Case Insensitive');
-        if (results.searchOptions.fixedString) opts.push('Fixed String');
-        if (results.searchOptions.wholeWords) opts.push('Whole Words');
-        if (results.searchOptions.recursive) opts.push('Recursive');
-        if (results.searchOptions.showLineNumbers) opts.push('Line Numbers');
-        if (results.searchOptions.invertMatch) opts.push('Invert Match');
-        
-        output += opts.join(', ') || 'None';
+        if (results.searchOptions.caseSensitive) opts.push('Case Sensitive');
+        if (results.searchOptions.smartSearchRegex) opts.push('Smart-search (REGEX)');
+        if (results.searchOptions.afterContext && results.searchOptions.afterContext > 0) {
+            opts.push(`Context Lines: ${results.searchOptions.afterContext}`);
+        }
+
+        output += opts.join(', ') || 'Default (Case Insensitive, Normal Search)';
         output += `\n`;
         output += `Generated: ${results.timestamp.toISOString()}\n`;
         output += `Total Hits: ${this.getTotalHits(results)} in ${results.hits.length} members\n\n`;
