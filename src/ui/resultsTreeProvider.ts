@@ -231,16 +231,25 @@ export class FastPfuriousResultsTreeProvider implements vscode.TreeDataProvider<
         if (!hit) return [];
 
         const items: ResultTreeItem[] = hit.lines.map(line => {
-            // Highlight search term in content
-            const highlightedContent = this.highlightSearchTerm(line.content, this.results!.term);
-            
+            // Different handling for context lines vs match lines
+            const isContextLine = line.isContext === true;
+
+            // Highlight search term in content (only for actual matches, not context lines)
+            const displayContent = isContextLine
+                ? line.content
+                : this.highlightSearchTerm(line.content, this.results!.term);
+
             const item: ResultTreeItem = {
                 label: `Line ${line.number}`,
-                description: highlightedContent,
-                tooltip: `Line ${line.number}: ${line.content}`,
+                description: displayContent,
+                tooltip: isContextLine
+                    ? `Context line ${line.number}: ${line.content}`
+                    : `Match at line ${line.number}: ${line.content}`,
                 collapsibleState: vscode.TreeItemCollapsibleState.None,
-                contextValue: 'line',
-                iconPath: new vscode.ThemeIcon('location'),
+                contextValue: isContextLine ? 'contextLine' : 'line',
+                iconPath: isContextLine
+                    ? new vscode.ThemeIcon('dash', new vscode.ThemeColor('descriptionForeground'))  // Dimmed icon for context
+                    : new vscode.ThemeIcon('location'),  // Regular icon for matches
                 lineNumber: line.number,
                 memberPath: memberPath,
                 command: {
@@ -249,7 +258,7 @@ export class FastPfuriousResultsTreeProvider implements vscode.TreeDataProvider<
                     arguments: [memberPath, line.number]
                 }
             };
-            
+
             return item;
         });
 

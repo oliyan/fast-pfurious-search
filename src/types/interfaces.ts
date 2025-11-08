@@ -5,36 +5,22 @@ export interface FastPfuriousOptions {
     // Required
     searchTerm: string;
     libraries: string[];
-    
-    // Main UI Options (Quick Search Mode)
-    caseInsensitive?: boolean;     // -i flag
-    fixedString?: boolean;         // -F flag (vs regex)
-    wholeWords?: boolean;          // -w flag
-    recursive?: boolean;           // -r flag
-    
-    // Advanced Options (Advanced Search Mode)
-    showLineNumbers?: boolean;     // -n flag
-    maxMatches?: number;           // -m num flag
-    afterContext?: number;         // -A num flag
-    invertMatch?: boolean;         // -v flag
-    silentErrors?: boolean;        // -s flag
-    nonSourceFiles?: boolean;      // -p flag
-    dontTrimWhitespace?: boolean;  // -t flag
-    
-    // Additional PFGREP flags
-    showMatchingFiles?: boolean;   // -l flag
-    showNonMatchingFiles?: boolean; // -L flag
-    countOnly?: boolean;           // -c flag
-    quietMode?: boolean;           // -q flag
-    alwaysShowFilename?: boolean;  // -H flag
-    neverShowFilename?: boolean;   // -h flag
-    matchWholeLine?: boolean;      // -x flag
+
+    // Main Search Options
+    caseSensitive?: boolean;       // When true, adds -i flag (inverted: OFF by default = case insensitive)
+    smartSearchRegex?: boolean;    // When true, enables regex mode (OFF by default = normal/fixed string search)
+    // Note: recursive is always true (hardcoded -r flag)
+    // Note: maxMatches is hardcoded to 5000 (-m 5000 flag)
+
+    // Advanced Options
+    afterContext?: number;         // -A num flag (0-50 lines after each match)
 }
 
 // Search result interfaces
 export interface SearchHitLine {
     number: number;
     content: string;
+    isContext?: boolean;  // True if this is a context line (from -A flag), not an actual match
 }
 
 export interface SearchHit {
@@ -173,15 +159,7 @@ export interface WebviewMessage {
 export interface SearchFormData {
     searchTerm: string;
     libraries: string;
-    caseInsensitive: boolean;
-    fixedString: boolean;
-    wholeWords: boolean;
-    recursive: boolean;
-    showLineNumbers: boolean;
-    invertMatch: boolean;
-    silentErrors: boolean;
-    nonSourceFiles: boolean;
-    dontTrimWhitespace: boolean;
-    maxMatches?: string;
+    caseSensitive: boolean;
+    smartSearchRegex: boolean;
     afterContext?: string;
 }

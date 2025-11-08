@@ -25,10 +25,9 @@ export class SettingsManager {
             recentLibraries: this.context.globalState.get('fast-pfurious-search.recentLibraries', []),
             recentSearchTerms: this.context.globalState.get('fast-pfurious-search.recentSearchTerms', []),
             defaultOptions: this.context.globalState.get('fast-pfurious-search.defaultOptions', {
-                caseInsensitive: true,  // Default to case insensitive (per requirements)
-                recursive: true,        // Default to recursive (per requirements)
-                wholeWords: false,
-                fixedString: false
+                caseSensitive: false,      // Default: case insensitive (checkbox unchecked)
+                smartSearchRegex: false,   // Default: normal search, not regex (checkbox unchecked)
+                afterContext: 0            // Default: no context lines
             }),
             resultsSortOrder: this.context.globalState.get('fast-pfurious-search.resultsSortOrder', 'name'),
             maxRecentSearches: this.context.globalState.get('fast-pfurious-search.maxRecentSearches', 5),
@@ -216,10 +215,9 @@ export class SettingsManager {
             recentLibraries: [],
             recentSearchTerms: [],
             defaultOptions: {
-                caseInsensitive: true,
-                recursive: true,
-                wholeWords: false,
-                fixedString: false
+                caseSensitive: false,      // Default: case insensitive
+                smartSearchRegex: false,   // Default: normal search
+                afterContext: 0            // Default: no context lines
             },
             resultsSortOrder: 'name',
             maxRecentSearches: 5,

@@ -78,15 +78,9 @@ export class FastPfuriousSearchModal {
                 recentSearchTerms: recentSearchTerms.slice(0, 5), // Max 5 recent search terms
                 recentLibraries: recentLibraries.slice(0, 5), // Max 5 recent library patterns
                 options: {
-                    caseInsensitive: defaultOptions.caseInsensitive ?? true,
-                    fixedString: defaultOptions.fixedString ?? false,
-                    wholeWords: defaultOptions.wholeWords ?? false,
-                    recursive: defaultOptions.recursive ?? true,
-                    showLineNumbers: defaultOptions.showLineNumbers ?? false,
-                    invertMatch: defaultOptions.invertMatch ?? false,
-                    silentErrors: defaultOptions.silentErrors ?? false,
-                    nonSourceFiles: defaultOptions.nonSourceFiles ?? false,
-                    dontTrimWhitespace: defaultOptions.dontTrimWhitespace ?? false
+                    caseSensitive: defaultOptions.caseSensitive ?? false,  // Default: case insensitive
+                    smartSearchRegex: defaultOptions.smartSearchRegex ?? false,  // Default: normal search
+                    afterContext: defaultOptions.afterContext ?? 0  // Default: no context lines
                 }
             }
         });
@@ -113,20 +107,20 @@ export class FastPfuriousSearchModal {
                 return;
             }
 
+            let searchTerm = formData.searchTerm.trim();
+            const isRegexMode = formData.smartSearchRegex === true;
+
+            // In Normal Search mode (not regex), auto-wrap multi-word searches in quotes
+            if (!isRegexMode && searchTerm.includes(' ') && !searchTerm.startsWith('"') && !searchTerm.endsWith('"')) {
+                searchTerm = `"${searchTerm}"`;
+            }
+
             // Build search options
             const options: FastPfuriousOptions = {
-                searchTerm: formData.searchTerm.trim(),
+                searchTerm: searchTerm,
                 libraries,
-                caseInsensitive: formData.caseInsensitive,
-                fixedString: formData.fixedString,
-                wholeWords: formData.wholeWords,
-                recursive: formData.recursive,
-                showLineNumbers: formData.showLineNumbers,
-                invertMatch: formData.invertMatch,
-                silentErrors: formData.silentErrors,
-                nonSourceFiles: formData.nonSourceFiles,
-                dontTrimWhitespace: formData.dontTrimWhitespace,
-                maxMatches: formData.maxMatches && formData.maxMatches > 0 ? parseInt(formData.maxMatches) : undefined,
+                caseSensitive: formData.caseSensitive === true,  // Default false (case insensitive)
+                smartSearchRegex: formData.smartSearchRegex === true,  // Default false (normal search)
                 afterContext: formData.afterContext && formData.afterContext > 0 ? parseInt(formData.afterContext) : undefined
             };
 
@@ -193,24 +187,24 @@ export class FastPfuriousSearchModal {
             padding: 20px;
             margin: 0;
         }
-        
+
         .container {
-            max-width: 560px;
+            max-width: 600px;
             margin: 0 auto;
         }
-        
+
         .form-group {
             margin-bottom: 16px;
         }
-        
+
         label {
             display: block;
             margin-bottom: 4px;
             font-weight: 600;
             color: var(--vscode-input-foreground);
         }
-        
-        input[type="text"], input[type="number"], textarea {
+
+        input[type="text"], input[type="number"] {
             width: 100%;
             padding: 8px 12px;
             border: 1px solid var(--vscode-input-border);
@@ -221,19 +215,19 @@ export class FastPfuriousSearchModal {
             font-family: inherit;
             font-size: inherit;
         }
-        
-        input[type="text"]:focus, input[type="number"]:focus, textarea:focus {
+
+        input[type="text"]:focus, input[type="number"]:focus {
             outline: none;
             border-color: var(--vscode-focusBorder);
         }
-        
+
         .recent-terms {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
             margin-top: 8px;
         }
-        
+
         .recent-term, .recent-library {
             background-color: var(--vscode-button-secondaryBackground);
             color: var(--vscode-button-secondaryForeground);
@@ -247,36 +241,58 @@ export class FastPfuriousSearchModal {
         .recent-term:hover, .recent-library:hover {
             background-color: var(--vscode-button-secondaryHoverBackground);
         }
-        
-        .checkbox-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-top: 8px;
-        }
-        
+
         .checkbox-item {
             display: flex;
             align-items: center;
             gap: 8px;
+            margin-bottom: 12px;
         }
-        
+
         input[type="checkbox"] {
             margin: 0;
         }
-        
-        .advanced-section {
-            border-top: 1px solid var(--vscode-panel-border);
-            padding-top: 16px;
-            margin-top: 16px;
+
+        .help-icon {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: var(--vscode-descriptionForeground);
+            color: var(--vscode-editor-background);
+            text-align: center;
+            line-height: 16px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: 6px;
+            user-select: none;
         }
-        
-        .number-inputs {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
+
+        .help-icon:hover {
+            background-color: var(--vscode-focusBorder);
         }
-        
+
+        .help-tooltip {
+            position: fixed;
+            background-color: var(--vscode-editorHoverWidget-background);
+            border: 1px solid var(--vscode-editorHoverWidget-border);
+            border-radius: 4px;
+            padding: 8px 12px;
+            max-width: 300px;
+            font-size: 12px;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .mode-tip {
+            background-color: var(--vscode-textBlockQuote-background);
+            border-left: 3px solid var(--vscode-textBlockQuote-border);
+            padding: 8px 12px;
+            margin-top: 6px;
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+        }
+
         .search-button {
             width: 100%;
             padding: 12px;
@@ -289,166 +305,272 @@ export class FastPfuriousSearchModal {
             font-weight: 600;
             margin-top: 20px;
         }
-        
+
         .search-button:hover {
             background-color: var(--vscode-button-hoverBackground);
         }
-        
-        .search-button:disabled {
-            background-color: var(--vscode-button-secondaryBackground);
-            color: var(--vscode-button-secondaryForeground);
-            cursor: not-allowed;
-        }
-        
+
         .status-message {
             padding: 8px 12px;
             border-radius: 3px;
             margin-top: 12px;
             font-weight: 500;
         }
-        
+
         .status-error {
             background-color: var(--vscode-inputValidation-errorBackground);
             border: 1px solid var(--vscode-inputValidation-errorBorder);
             color: var(--vscode-errorForeground);
         }
-        
+
         .status-success {
             background-color: var(--vscode-terminal-ansiGreen);
             color: var(--vscode-terminal-background);
         }
-        
+
         .status-info {
             background-color: var(--vscode-terminal-ansiBlue);
             color: var(--vscode-terminal-background);
         }
-        
+
         .placeholder-text {
             font-size: 12px;
             color: var(--vscode-descriptionForeground);
             margin-top: 4px;
+        }
+
+        .error-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: var(--vscode-inputValidation-errorBackground);
+            border: 2px solid var(--vscode-inputValidation-errorBorder);
+            border-radius: 6px;
+            padding: 20px 24px;
+            min-width: 300px;
+            text-align: center;
+            z-index: 2000;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+        }
+
+        .error-modal.show {
+            display: block;
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translate(-50%, -50%) translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translate(-50%, -50%) translateX(-10px); }
+            20%, 40%, 60%, 80% { transform: translate(-50%, -50%) translateX(10px); }
+        }
+
+        .error-modal-content {
+            color: var(--vscode-errorForeground);
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .error-modal-button {
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 3px;
+            padding: 6px 20px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .error-modal-button:hover {
+            background-color: var(--vscode-button-hoverBackground);
         }
     </style>
 </head>
 <body>
     <div class="container">
         <h2>Fast & PF-urious Search</h2>
-        
+
         <form id="searchForm">
             <div class="form-group">
                 <label for="searchTerm">Search Term:</label>
                 <input type="text" id="searchTerm" name="searchTerm" placeholder="Enter text to search for..." required>
+                <div class="mode-tip" id="modeTip">
+                    💡 Tip: Use quotes for exact phrases with spaces (e.g., "EXEC SQL")
+                </div>
                 <div class="recent-terms" id="recentTerms"></div>
             </div>
-            
+
             <div class="form-group">
                 <label for="libraries">Libraries:</label>
                 <input type="text" id="libraries" name="libraries" placeholder="LIB1,LIB2,PROD*,*DEV" required>
                 <div class="placeholder-text">Comma-separated library names or patterns (wildcards supported)</div>
                 <div class="recent-terms" id="recentLibraries"></div>
             </div>
-            
+
             <div class="form-group">
                 <label>Search Options:</label>
-                <div class="checkbox-grid">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="caseInsensitive" name="caseInsensitive" checked>
-                        <label for="caseInsensitive">Case Insensitive</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="fixedString" name="fixedString">
-                        <label for="fixedString">Fixed String (not regex)</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="wholeWords" name="wholeWords">
-                        <label for="wholeWords">Whole Words</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="recursive" name="recursive" checked>
-                        <label for="recursive">Recursive</label>
-                    </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="caseSensitive" name="caseSensitive">
+                    <label for="caseSensitive" style="display: inline; font-weight: normal;">Case Sensitive</label>
+                    <span class="help-icon" data-help="caseSensitive">?</span>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="smartSearchRegex" name="smartSearchRegex">
+                    <label for="smartSearchRegex" style="display: inline; font-weight: normal;">Smart-search (REGEX)</label>
+                    <span class="help-icon" data-help="smartSearchRegex">?</span>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="afterContextEnabled" name="afterContextEnabled">
+                    <label for="afterContextEnabled" style="display: inline; font-weight: normal;">Show Context Lines</label>
+                    <span class="help-icon" data-help="afterContext">?</span>
+                    <input type="number" id="afterContext" name="afterContext" min="0" max="50" placeholder="Lines (0-50)"
+                           style="width: 120px; margin-left: 12px; display: none;">
                 </div>
             </div>
-            
-            <div class="advanced-section">
-                <label>Advanced Options:</label>
-                <div class="checkbox-grid">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="showLineNumbers" name="showLineNumbers">
-                        <label for="showLineNumbers">Show Line Numbers</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="invertMatch" name="invertMatch">
-                        <label for="invertMatch">Invert Matches</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="silentErrors" name="silentErrors">
-                        <label for="silentErrors">Silent Errors</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="nonSourceFiles" name="nonSourceFiles">
-                        <label for="nonSourceFiles">Non-Source Files</label>
-                    </div>
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="dontTrimWhitespace" name="dontTrimWhitespace">
-                        <label for="dontTrimWhitespace">Don't Trim Whitespace</label>
-                    </div>
-                </div>
-                
-                <div class="number-inputs" style="margin-top: 16px;">
-                    <div class="form-group">
-                        <label for="maxMatches">Max Matches:</label>
-                        <input type="number" id="maxMatches" name="maxMatches" min="1" max="10000" placeholder="No limit">
-                    </div>
-                    <div class="form-group">
-                        <label for="afterContext">After Context Lines:</label>
-                        <input type="number" id="afterContext" name="afterContext" min="0" max="50" placeholder="0">
-                    </div>
-                </div>
-            </div>
-            
+
             <button type="submit" class="search-button" id="searchButton">Search</button>
-            
+
             <div id="statusMessage" class="status-message" style="display: none;"></div>
         </form>
     </div>
 
+    <!-- Error Modal -->
+    <div id="errorModal" class="error-modal">
+        <div class="error-modal-content">❌ Error: Invalid REGEX Pattern</div>
+        <button class="error-modal-button" onclick="closeErrorModal()">OK</button>
+    </div>
+
     <script>
         const vscode = acquireVsCodeApi();
-        
+
+        // Help tooltip content
+        const helpContent = {
+            caseSensitive: 'When checked, search will match exact case. Default is OFF (case-insensitive).<br><br>Example: With this OFF, "SQL" matches "sql", "SQL", "Sql"',
+            smartSearchRegex: 'Enable regex pattern matching. Default is OFF (normal text search).<br><br>Example: <code>\\bCVTDT\\b</code> matches whole word CVTDT',
+            afterContext: 'Show N lines after each match for context. Range: 0-50 lines.<br><br>Example: 3 lines shows the 3 lines following each match'
+        };
+
+        // Show/hide context lines input based on checkbox
+        document.getElementById('afterContextEnabled').addEventListener('change', function() {
+            const contextInput = document.getElementById('afterContext');
+            contextInput.style.display = this.checked ? 'inline-block' : 'none';
+            if (!this.checked) {
+                contextInput.value = '';
+            } else {
+                contextInput.value = contextInput.value || '3';  // Default to 3 lines
+            }
+        });
+
+        // Update mode tip based on regex checkbox
+        document.getElementById('smartSearchRegex').addEventListener('change', function() {
+            const modeTip = document.getElementById('modeTip');
+            if (this.checked) {
+                modeTip.textContent = '💡 Tip: Use regex patterns like \\\\bWORD\\\\b for whole words, ^START for line start';
+            } else {
+                modeTip.textContent = '💡 Tip: Use quotes for exact phrases with spaces (e.g., "EXEC SQL")';
+            }
+        });
+
+        // Help icon click handlers
+        let currentTooltip = null;
+        document.querySelectorAll('.help-icon').forEach(icon => {
+            icon.addEventListener('click', function(e) {
+                e.stopPropagation();
+
+                // Remove existing tooltip
+                if (currentTooltip) {
+                    currentTooltip.remove();
+                    currentTooltip = null;
+                }
+
+                const helpKey = this.getAttribute('data-help');
+                const content = helpContent[helpKey];
+
+                if (content) {
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'help-tooltip';
+                    tooltip.innerHTML = content;
+                    document.body.appendChild(tooltip);
+
+                    // Position near the icon
+                    const rect = this.getBoundingClientRect();
+                    tooltip.style.left = rect.left + 'px';
+                    tooltip.style.top = (rect.bottom + 8) + 'px';
+
+                    currentTooltip = tooltip;
+                }
+            });
+        });
+
+        // Close tooltip when clicking elsewhere
+        document.addEventListener('click', function() {
+            if (currentTooltip) {
+                currentTooltip.remove();
+                currentTooltip = null;
+            }
+        });
+
+        // Validate regex pattern
+        function validateRegex(pattern) {
+            try {
+                new RegExp(pattern);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        // Show error modal
+        function showErrorModal() {
+            const modal = document.getElementById('errorModal');
+            modal.classList.add('show');
+        }
+
+        // Close error modal
+        function closeErrorModal() {
+            const modal = document.getElementById('errorModal');
+            modal.classList.remove('show');
+        }
+
         // Handle form submission
         document.getElementById('searchForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            
-            const formData = new FormData(this);
-            const options = {};
-            
-            // Get all form values
-            for (let [key, value] of formData.entries()) {
-                if (value === 'on') {
-                    options[key] = true;
-                } else if (value === '') {
-                    options[key] = false;
-                } else {
-                    options[key] = value;
+
+            const searchTerm = document.getElementById('searchTerm').value.trim();
+            const isRegexMode = document.getElementById('smartSearchRegex').checked;
+            const afterContextEnabled = document.getElementById('afterContextEnabled').checked;
+            const afterContextValue = document.getElementById('afterContext').value;
+
+            // Validate regex if in regex mode
+            if (isRegexMode && !validateRegex(searchTerm)) {
+                showErrorModal();
+                return;
+            }
+
+            // Validate after context lines
+            if (afterContextEnabled) {
+                const contextLines = parseInt(afterContextValue);
+                if (isNaN(contextLines) || contextLines < 0 || contextLines > 50) {
+                    alert('Context lines must be between 0 and 50');
+                    return;
                 }
             }
-            
-            // Handle unchecked checkboxes
-            const checkboxes = ['caseInsensitive', 'fixedString', 'wholeWords', 'recursive', 
-                              'showLineNumbers', 'invertMatch', 'silentErrors', 'nonSourceFiles', 'dontTrimWhitespace'];
-            checkboxes.forEach(name => {
-                if (!(name in options)) {
-                    options[name] = false;
-                }
-            });
-            
+
+            const options = {
+                searchTerm: searchTerm,
+                libraries: document.getElementById('libraries').value,
+                caseSensitive: document.getElementById('caseSensitive').checked,
+                smartSearchRegex: isRegexMode,
+                afterContext: afterContextEnabled && afterContextValue ? parseInt(afterContextValue) : 0
+            };
+
             vscode.postMessage({
                 command: 'search',
                 options: options
             });
         });
-        
+
         // Handle Enter key in input fields
         document.querySelectorAll('input[type="text"], input[type="number"]').forEach(input => {
             input.addEventListener('keydown', function(e) {
@@ -458,7 +580,7 @@ export class FastPfuriousSearchModal {
                 }
             });
         });
-        
+
         // Handle recent search term clicks (replaces text)
         function addRecentTermClickHandler() {
             document.querySelectorAll('.recent-term').forEach(button => {
@@ -476,7 +598,6 @@ export class FastPfuriousSearchModal {
                     const currentValue = librariesInput.value.trim();
                     const newLibrary = this.textContent;
 
-                    // Append to existing text with comma separator if field is not empty
                     if (currentValue) {
                         librariesInput.value = currentValue + ',' + newLibrary;
                     } else {
@@ -485,28 +606,28 @@ export class FastPfuriousSearchModal {
                 });
             });
         }
-        
+
         // Handle messages from extension
         window.addEventListener('message', event => {
             const message = event.data;
-            
+
             switch (message.command) {
                 case 'setDefaults':
                     const data = message.data;
-                    
-                    // Set field values
+
                     document.getElementById('searchTerm').value = data.searchTerm || '';
                     document.getElementById('libraries').value = data.libraries || '';
-                    
-                    // Set checkboxes
+
                     const options = data.options || {};
-                    Object.keys(options).forEach(key => {
-                        const element = document.getElementById(key);
-                        if (element && element.type === 'checkbox') {
-                            element.checked = options[key];
-                        }
-                    });
-                    
+                    document.getElementById('caseSensitive').checked = options.caseSensitive || false;
+                    document.getElementById('smartSearchRegex').checked = options.smartSearchRegex || false;
+
+                    if (options.afterContext && options.afterContext > 0) {
+                        document.getElementById('afterContextEnabled').checked = true;
+                        document.getElementById('afterContext').value = options.afterContext;
+                        document.getElementById('afterContext').style.display = 'inline-block';
+                    }
+
                     // Add recent search terms
                     const recentTermsContainer = document.getElementById('recentTerms');
                     recentTermsContainer.innerHTML = '';
@@ -535,14 +656,13 @@ export class FastPfuriousSearchModal {
                         addRecentLibraryClickHandler();
                     }
                     break;
-                    
+
                 case 'showMessage':
                     const statusDiv = document.getElementById('statusMessage');
                     statusDiv.textContent = message.message;
                     statusDiv.className = 'status-message status-' + message.type;
                     statusDiv.style.display = 'block';
-                    
-                    // Hide after 3 seconds for success/info messages
+
                     if (message.type !== 'error') {
                         setTimeout(() => {
                             statusDiv.style.display = 'none';
@@ -551,7 +671,7 @@ export class FastPfuriousSearchModal {
                     break;
             }
         });
-        
+
         // Request defaults when page loads
         vscode.postMessage({ command: 'getDefaults' });
     </script>
