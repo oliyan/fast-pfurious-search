@@ -5,6 +5,58 @@ All notable changes to the "PFGREP Search for IBM i" extension will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-01-09
+
+### 🎉 Major UI/UX Overhaul - Simplified Search Experience
+
+### Added
+- **Smart-search (REGEX) mode** - Toggle between Normal text search and Regex patterns
+- **Contextual help icons (?)** - Click-to-show tooltips for each search option
+- **Regex validation** - Client-side validation with animated error modal
+- **Context lines support** - Fixed parser to properly display lines after matches (0-50 range)
+- **Auto-quote wrapping** - Multi-word searches automatically wrapped in quotes (Normal mode only)
+- **Dynamic mode tips** - Context-aware tips that change based on search mode
+- **5000 match limit warning** - Notification when search results are capped
+- **Context line visualization** - Dimmed icon for context lines vs actual matches
+
+### Changed (Breaking)
+- **Case Sensitive option** - Flipped from "Case Insensitive" (checked) → "Case Sensitive" (unchecked)
+  - Default is now case-insensitive unless box is checked
+  - Logic inverted: `-i` flag added when caseSensitive = false
+- **Smart-search (REGEX) option** - Renamed from "Fixed String" with inverted behavior
+  - Default is now Normal Search (fixed string with `-F` flag)
+  - When checked, enables full PCRE regex mode
+- **Hardcoded max matches to 5000** - Removed user input, always limits to 5000 results
+- **Always recursive** - Removed checkbox, always enabled with `-r` flag
+- **Always show line numbers** - Removed checkbox, always enabled with `-n` flag
+
+### Removed
+- **Whole Words option** - Use `\bWORD\b` in regex mode instead
+- **Invert Matches option** - Confusing for users, rarely used
+- **Silent Errors option** - Hides real problems, bad UX
+- **Non-Source Files option** - Wrong tool for data file searches
+- **Don't Trim Whitespace option** - Parser always trimmed, not needed for modern code
+- **Max Matches input field** - Hardcoded to 5000
+- **Advanced Options section** - Merged with main Search Options
+
+### Fixed
+- **Context line parsing** - Now properly handles `-A` flag with `-` separator
+- **Context line display** - Shows context lines with proper visual distinction
+- **Settings migration** - Reset to new defaults (caseSensitive: false, smartSearchRegex: false)
+
+### Technical Changes
+- Updated `FastPfuriousOptions` interface with new property names
+- Fixed `resultsTreeProvider` to display context lines with dimmed icons
+- Updated default settings in `settingsManager`
+- Improved PFGREP command building with hardcoded flags
+- Enhanced output parsing for match vs context line detection
+
+### Documentation
+- Updated README with new search modes and examples
+- Added Normal Search vs Regex Search comparison
+- Documented new 5000 match limit
+- Removed outdated advanced options documentation
+
 ## [1.0.0] - 2024-01-15
 
 ### Added
