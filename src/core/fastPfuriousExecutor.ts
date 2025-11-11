@@ -107,6 +107,11 @@ export class FastPfuriousExecutor {
         // Hardcode max matches to 5000
         flags.push('-m 5000');
 
+        // Before context lines (optional, 0-50)
+        if (options.beforeContext && options.beforeContext > 0) {
+            flags.push(`-B ${options.beforeContext}`);
+        }
+
         // After context lines (optional, 0-50)
         if (options.afterContext && options.afterContext > 0) {
             flags.push(`-A ${options.afterContext}`);
@@ -229,6 +234,11 @@ export class FastPfuriousExecutor {
         let totalMatchLines = 0;
 
         for (const line of lines) {
+            // Skip separator lines (--) between match groups
+            if (line === '--' || line.trim() === '--') {
+                continue;
+            }
+
             // PFGREP output format for matches: /QSYS.LIB/LIBRARY.LIB/FILE.FILE/MEMBER.MBR:lineNumber:content
             const matchLine = line.match(/^([^:]+):(\d+):(.*)$/);
 

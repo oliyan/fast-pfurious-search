@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fast & PF-urious Search</title>
+    <style>
+        body {
+            font-family: var(--vscode-font-family);
+            font-size: var(--vscode-font-size);
+            color: var(--vscode-foreground);
+            background-color: var(--vscode-editor-background);
+            padding: 20px;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Tab styling */
+        .search-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--vscode-descriptionForeground);
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .tab-button.active {
+            color: var(--vscode-focusBorder);
+            border-bottom-color: var(--vscode-focusBorder);
+            font-weight: 600;
+        }
+
+        .tab-button:hover:not(.active) {
+            color: var(--vscode-foreground);
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: 600;
+            color: var(--vscode-input-foreground);
+        }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--vscode-input-border);
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            border-radius: 3px;
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: inherit;
+        }
+
+        input[type="text"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: var(--vscode-focusBorder);
+        }
+
+        .quote-warning {
+            display: none;
+            background-color: var(--vscode-inputValidation-warningBackground);
+            border: 1px solid var(--vscode-inputValidation-warningBorder);
+            color: var(--vscode-inputValidation-warningForeground);
+            padding: 6px 10px;
+            margin-top: 6px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        .quote-warning.show {
+            display: block;
+        }
+
+        .mode-tip {
+            background-color: var(--vscode-textBlockQuote-background);
+            border-left: 3px solid var(--vscode-textBlockQuote-border);
+            padding: 8px 12px;
+            margin-top: 6px;
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+        }
+
+        .recent-terms {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .recent-term, .recent-library {
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            border: none;
+            border-radius: 3px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .recent-term:hover, .recent-library:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        input[type="checkbox"] {
+            margin: 0;
+        }
+
+        .help-icon {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: var(--vscode-descriptionForeground);
+            color: var(--vscode-editor-background);
+            text-align: center;
+            line-height: 16px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: 6px;
+            user-select: none;
+        }
+
+        .help-icon:hover {
+            background-color: var(--vscode-focusBorder);
+        }
+
+        .help-tooltip {
+            position: fixed;
+            background-color: var(--vscode-editorHoverWidget-background);
+            border: 1px solid var(--vscode-editorHoverWidget-border);
+            border-radius: 4px;
+            padding: 8px 12px;
+            max-width: 300px;
+            font-size: 12px;
+            z-index: 1000;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .context-inputs {
+            display: none;
+            margin-left: 24px;
+            margin-top: 8px;
+            padding: 10px;
+            background-color: var(--vscode-editor-inactiveSelectionBackground);
+            border-radius: 3px;
+        }
+
+        .context-inputs.show {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .context-input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .context-input-group label {
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+
+        .context-input-group input {
+            width: 100%;
+        }
+
+        .search-button {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 20px;
+        }
+
+        .search-button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+
+        .status-message {
+            padding: 8px 12px;
+            border-radius: 3px;
+            margin-top: 12px;
+            font-weight: 500;
+        }
+
+        .status-error {
+            background-color: var(--vscode-inputValidation-errorBackground);
+            border: 1px solid var(--vscode-inputValidation-errorBorder);
+            color: var(--vscode-errorForeground);
+        }
+
+        .status-success {
+            background-color: var(--vscode-terminal-ansiGreen);
+            color: var(--vscode-terminal-background);
+        }
+
+        .status-info {
+            background-color: var(--vscode-terminal-ansiBlue);
+            color: var(--vscode-terminal-background);
+        }
+
+        .placeholder-text {
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
+            margin-top: 4px;
+        }
+
+        .error-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: var(--vscode-inputValidation-errorBackground);
+            border: 2px solid var(--vscode-inputValidation-errorBorder);
+            border-radius: 6px;
+            padding: 20px 24px;
+            min-width: 300px;
+            text-align: center;
+            z-index: 2000;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+        }
+
+        .error-modal.show {
+            display: block;
+            animation: shake 0.5s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translate(-50%, -50%) translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translate(-50%, -50%) translateX(-10px); }
+            20%, 40%, 60%, 80% { transform: translate(-50%, -50%) translateX(10px); }
+        }
+
+        .error-modal-content {
+            color: var(--vscode-errorForeground);
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        .error-modal-button {
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+            border: none;
+            border-radius: 3px;
+            padding: 6px 20px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .error-modal-button:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Fast & PF-urious Search</h2>
+
+        <!-- Tab Selection -->
+        <div class="search-tabs">
+            <button id="basicSearchTab" class="tab-button active" type="button">Basic Search</button>
+            <button id="regexSearchTab" class="tab-button" type="button">REGEX Search</button>
+        </div>
+
+        <form id="searchForm">
+            <div class="form-group">
+                <label for="searchTerm">Search Term:</label>
+                <input type="text" id="searchTerm" name="searchTerm" placeholder="Enter text to search for..." required>
+                <div class="quote-warning" id="quoteWarning">
+                    ⚠️ Your search contains quotes. The quote characters will be included in the search.
+                </div>
+                <div class="mode-tip" id="modeTip">
+                    💡 Tip: Multi-word searches are treated as phrases in Basic Search mode
+                </div>
+                <div class="recent-terms" id="recentTerms"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="searchLocation">
+                    Search Location:
+                    <span class="help-icon" data-help="searchLocation">?</span>
+                </label>
+                <input type="text" id="searchLocation" name="searchLocation" placeholder="Mylib/file/memb*" required>
+                <div class="placeholder-text">Examples: MYLIB, MYLIB/QRPGSRC, */QCLSRC, MYLIB/QRPGSRC/PROG*</div>
+                <div class="recent-terms" id="recentLocations"></div>
+            </div>
+
+            <div class="form-group">
+                <label>Search Options:</label>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="caseSensitive" name="caseSensitive">
+                    <label for="caseSensitive" style="display: inline; font-weight: normal;">Case Sensitive</label>
+                    <span class="help-icon" data-help="caseSensitive">?</span>
+                </div>
+                <div class="checkbox-item">
+                    <input type="checkbox" id="showContextLines" name="showContextLines">
+                    <label for="showContextLines" style="display: inline; font-weight: normal;">Show Context Lines</label>
+                    <span class="help-icon" data-help="contextLines">?</span>
+                </div>
+                <div id="contextInputs" class="context-inputs">
+                    <div class="context-input-group">
+                        <label for="beforeContext">Before:</label>
+                        <input type="number" id="beforeContext" name="beforeContext" min="0" max="50" value="2">
+                    </div>
+                    <div class="context-input-group">
+                        <label for="afterContext">After:</label>
+                        <input type="number" id="afterContext" name="afterContext" min="0" max="50" value="2">
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="search-button" id="searchButton">Search</button>
+
+            <div id="statusMessage" class="status-message" style="display: none;"></div>
+        </form>
+    </div>
+
+    <!-- Error Modal -->
+    <div id="errorModal" class="error-modal">
+        <div class="error-modal-content">❌ Error: Invalid REGEX Pattern</div>
+        <button class="error-modal-button" onclick="closeErrorModal()">OK</button>
+    </div>
+
+    <!-- JavaScript will be inserted here -->
+</body>
+</html>

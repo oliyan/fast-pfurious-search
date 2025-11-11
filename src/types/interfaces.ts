@@ -12,7 +12,8 @@ export interface FastPfuriousOptions {
     // Note: recursive is always true (hardcoded -r flag)
     // Note: maxMatches is hardcoded to 5000 (-m 5000 flag)
 
-    // Advanced Options
+    // Context Lines Options
+    beforeContext?: number;        // -B num flag (0-50 lines before each match)
     afterContext?: number;         // -A num flag (0-50 lines after each match)
 }
 
@@ -161,5 +162,7 @@ export interface SearchFormData {
     libraries: string;
     caseSensitive: boolean;
     smartSearchRegex: boolean;
+    beforeContext?: string;
     afterContext?: string;
+    searchMode?: string;  // 'basic' or 'regex' from tab selection
 }

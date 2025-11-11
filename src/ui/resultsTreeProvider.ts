@@ -234,10 +234,8 @@ export class FastPfuriousResultsTreeProvider implements vscode.TreeDataProvider<
             // Different handling for context lines vs match lines
             const isContextLine = line.isContext === true;
 
-            // Highlight search term in content (only for actual matches, not context lines)
-            const displayContent = isContextLine
-                ? line.content
-                : this.highlightSearchTerm(line.content, this.results!.term);
+            // No highlighting needed - display content as-is
+            const displayContent = line.content;
 
             const item: ResultTreeItem = {
                 label: `Line ${line.number}`,
@@ -248,8 +246,8 @@ export class FastPfuriousResultsTreeProvider implements vscode.TreeDataProvider<
                 collapsibleState: vscode.TreeItemCollapsibleState.None,
                 contextValue: isContextLine ? 'contextLine' : 'line',
                 iconPath: isContextLine
-                    ? new vscode.ThemeIcon('dash', new vscode.ThemeColor('descriptionForeground'))  // Dimmed icon for context
-                    : new vscode.ThemeIcon('location'),  // Regular icon for matches
+                    ? new vscode.ThemeIcon('dash', new vscode.ThemeColor('descriptionForeground'))  // Dash icon for context (dimmed)
+                    : new vscode.ThemeIcon('arrow-right'),  // Arrow icon for actual matches
                 lineNumber: line.number,
                 memberPath: memberPath,
                 command: {

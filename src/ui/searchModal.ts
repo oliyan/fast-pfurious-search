@@ -107,13 +107,8 @@ export class FastPfuriousSearchModal {
                 return;
             }
 
-            let searchTerm = formData.searchTerm.trim();
+            const searchTerm = formData.searchTerm.trim();
             const isRegexMode = formData.smartSearchRegex === true;
-
-            // In Normal Search mode (not regex), auto-wrap multi-word searches in quotes
-            if (!isRegexMode && searchTerm.includes(' ') && !searchTerm.startsWith('"') && !searchTerm.endsWith('"')) {
-                searchTerm = `"${searchTerm}"`;
-            }
 
             // Build search options
             const options: FastPfuriousOptions = {
@@ -121,6 +116,7 @@ export class FastPfuriousSearchModal {
                 libraries,
                 caseSensitive: formData.caseSensitive === true,  // Default false (case insensitive)
                 smartSearchRegex: formData.smartSearchRegex === true,  // Default false (normal search)
+                beforeContext: formData.beforeContext && formData.beforeContext > 0 ? parseInt(formData.beforeContext) : undefined,
                 afterContext: formData.afterContext && formData.afterContext > 0 ? parseInt(formData.afterContext) : undefined
             };
 
