@@ -556,7 +556,7 @@ export class FastPfuriousSearchModal {
         // Help tooltip content
         const helpContent = {
             caseSensitive: 'When checked, search will match exact case. Default is OFF (case-insensitive).<br><br>Example: With this OFF, "SQL" matches "sql", "SQL", "Sql"',
-            searchLocation: 'Specify where to search. Supports library, file, and member patterns with wildcards (* only at end).<br><br><b>Examples:</b><br>• <code>MYLIB</code> - entire library<br>• <code>MYLIB/QRPGLESRC</code> - specific file<br>• <code>MYLIB/QRPGLESRC/PROG*</code> - members starting with PROG<br>• <code>*/QCLSRC</code> - QCLSRC in all libraries<br>• <code>AGO*/QRPGLESRC/*</code> - all members in QRPGLESRC for libraries starting with AGO',
+            searchLocation: 'Specify where to search. Supports library, file, and member patterns with wildcards (asterisk only at end).<br><br><b>Examples:</b><br>• <code>MYLIB</code> - entire library<br>• <code>MYLIB/QRPGLESRC</code> - specific file<br>• <code>MYLIB/QRPGLESRC/PROG*</code> - members starting with PROG<br>• <code>star/QCLSRC</code> - QCLSRC in all libraries<br>• <code>AGOstar/QRPGLESRC/star</code> - all members in QRPGLESRC for libraries starting with AGO',
             contextLines: 'Show N lines after each match for context. Range: 0-50 lines.<br><br><b>Example:</b> Entering 3 will show the 3 lines following each match.<br><br><b>Note:</b> PFGREP only supports "after" context lines, not "before".'
         };
 
