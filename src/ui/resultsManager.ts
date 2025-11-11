@@ -84,7 +84,7 @@ export class FastPfuriousResultsManager implements vscode.Disposable {
     }
 
     /**
-     * Export active results to text file
+     * Export active results to new editor tab
      */
     public async exportActiveResults(): Promise<void> {
         if (!this.activeResultsId) {
@@ -100,19 +100,20 @@ export class FastPfuriousResultsManager implements vscode.Disposable {
 
         try {
             const content = this.formatResultsAsText(results);
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-            const defaultFilename = `fast-pfurious-${results.term}-${timestamp}.txt`;
 
-            const uri = await vscode.window.showSaveDialog({
-                defaultUri: vscode.Uri.file(defaultFilename),
-                filters: { 'Text files': ['txt'] },
-                saveLabel: 'Export Results'
+            // Create a new untitled document
+            const doc = await vscode.workspace.openTextDocument({
+                content: content,
+                language: 'plaintext'
             });
 
-            if (uri) {
-                await vscode.workspace.fs.writeFile(uri, Buffer.from(content, 'utf8'));
-                vscode.window.showInformationMessage(`Results exported to ${uri.fsPath}`);
-            }
+            // Show the document in the editor and bring focus to it
+            await vscode.window.showTextDocument(doc, {
+                preview: false,
+                viewColumn: vscode.ViewColumn.One
+            });
+
+            vscode.window.setStatusBarMessage('📄 Results opened in editor', 3000);
 
         } catch (error: any) {
             vscode.window.showErrorMessage(`Export failed: ${error.message}`);
