@@ -500,16 +500,30 @@ export class FastPfuriousSearchModal {
         </div>
 
         <form id="searchForm">
-            <div class="form-group">
-                <label for="searchTerm">Search Term:</label>
-                <input type="text" id="searchTerm" name="searchTerm" placeholder="Enter text to search for..." required>
-                <div class="quote-warning" id="quoteWarning">
+            <!-- Basic Search Input -->
+            <div class="form-group" id="basicSearchGroup">
+                <label for="basicSearchTerm">Search Term:</label>
+                <input type="text" id="basicSearchTerm" name="searchTerm" placeholder="Enter text to search for..." required>
+                <div class="quote-warning" id="basicQuoteWarning">
                     ⚠️ Your search contains quotes. The quote characters will be included in the search.
                 </div>
-                <div class="mode-tip" id="modeTip">
+                <div class="mode-tip" id="basicModeTip">
                     💡 Tip: Multi-word searches are treated as phrases in Basic Search mode
                 </div>
-                <div class="recent-terms" id="recentTerms"></div>
+                <div class="recent-terms" id="basicRecentTerms"></div>
+            </div>
+
+            <!-- REGEX Search Input -->
+            <div class="form-group" id="regexSearchGroup" style="display: none;">
+                <label for="regexSearchTerm">Search Term:</label>
+                <input type="text" id="regexSearchTerm" name="searchTerm" placeholder="Enter regex pattern...">
+                <div class="quote-warning" id="regexQuoteWarning">
+                    ⚠️ Your search contains quotes. The quote characters will be included in the search.
+                </div>
+                <div class="mode-tip" id="regexModeTip">
+                    💡 Tip: Use regex patterns like \bWORD\b for whole words, ^START for line start
+                </div>
+                <div class="recent-terms" id="regexRecentTerms"></div>
             </div>
 
             <div class="form-group">
@@ -566,7 +580,10 @@ export class FastPfuriousSearchModal {
             currentSearchMode = 'basic';
             document.getElementById('basicSearchTab').classList.add('active');
             document.getElementById('regexSearchTab').classList.remove('active');
-            updateModeTip();
+
+            // Show/hide appropriate search groups
+            document.getElementById('basicSearchGroup').style.display = 'block';
+            document.getElementById('regexSearchGroup').style.display = 'none';
         });
 
         document.getElementById('regexSearchTab').addEventListener('click', function() {
@@ -574,23 +591,28 @@ export class FastPfuriousSearchModal {
             currentSearchMode = 'regex';
             document.getElementById('regexSearchTab').classList.add('active');
             document.getElementById('basicSearchTab').classList.remove('active');
-            updateModeTip();
+
+            // Show/hide appropriate search groups
+            document.getElementById('basicSearchGroup').style.display = 'none';
+            document.getElementById('regexSearchGroup').style.display = 'block';
         });
 
-        // Update mode tip based on current tab
-        function updateModeTip() {
-            const modeTip = document.getElementById('modeTip');
-            if (currentSearchMode === 'regex') {
-                modeTip.textContent = '💡 Tip: Use regex patterns like \\\\bWORD\\\\b for whole words, ^START for line start';
-            } else {
-                modeTip.textContent = '💡 Tip: Multi-word searches are treated as phrases in Basic Search mode';
-            }
-        }
-
-        // Quote detection and warning
-        document.getElementById('searchTerm').addEventListener('input', function() {
+        // Quote detection and warning for Basic Search
+        document.getElementById('basicSearchTerm').addEventListener('input', function() {
             const searchTerm = this.value;
-            const quoteWarning = document.getElementById('quoteWarning');
+            const quoteWarning = document.getElementById('basicQuoteWarning');
+
+            if (searchTerm.includes('"') || searchTerm.includes("'")) {
+                quoteWarning.classList.add('show');
+            } else {
+                quoteWarning.classList.remove('show');
+            }
+        });
+
+        // Quote detection and warning for REGEX Search
+        document.getElementById('regexSearchTerm').addEventListener('input', function() {
+            const searchTerm = this.value;
+            const quoteWarning = document.getElementById('regexQuoteWarning');
 
             if (searchTerm.includes('"') || searchTerm.includes("'")) {
                 quoteWarning.classList.add('show');
@@ -674,7 +696,11 @@ export class FastPfuriousSearchModal {
         document.getElementById('searchForm').addEventListener('submit', function(e) {
             e.preventDefault();
 
-            const searchTerm = document.getElementById('searchTerm').value.trim();
+            // Get search term from active tab
+            const searchTerm = currentSearchMode === 'basic'
+                ? document.getElementById('basicSearchTerm').value.trim()
+                : document.getElementById('regexSearchTerm').value.trim();
+
             const isRegexMode = currentSearchMode === 'regex';
             const showContext = document.getElementById('showContextLines').checked;
             const afterContextValue = document.getElementById('afterContext').value;
@@ -718,13 +744,24 @@ export class FastPfuriousSearchModal {
             });
         });
 
-        // Handle recent search term clicks (replaces text)
-        function addRecentTermClickHandler() {
-            document.querySelectorAll('.recent-term').forEach(button => {
+        // Handle recent search term clicks for Basic Search
+        function addBasicRecentTermClickHandler() {
+            document.querySelectorAll('#basicRecentTerms .recent-term').forEach(button => {
                 button.addEventListener('click', function() {
-                    document.getElementById('searchTerm').value = this.textContent;
+                    document.getElementById('basicSearchTerm').value = this.textContent;
                     // Trigger input event to check for quotes
-                    document.getElementById('searchTerm').dispatchEvent(new Event('input'));
+                    document.getElementById('basicSearchTerm').dispatchEvent(new Event('input'));
+                });
+            });
+        }
+
+        // Handle recent search term clicks for REGEX Search
+        function addRegexRecentTermClickHandler() {
+            document.querySelectorAll('#regexRecentTerms .recent-term').forEach(button => {
+                button.addEventListener('click', function() {
+                    document.getElementById('regexSearchTerm').value = this.textContent;
+                    // Trigger input event to check for quotes
+                    document.getElementById('regexSearchTerm').dispatchEvent(new Event('input'));
                 });
             });
         }
@@ -746,7 +783,9 @@ export class FastPfuriousSearchModal {
                 case 'setDefaults':
                     const data = message.data;
 
-                    document.getElementById('searchTerm').value = data.searchTerm || '';
+                    // Populate both search inputs (they're independent)
+                    document.getElementById('basicSearchTerm').value = data.searchTerm || '';
+                    document.getElementById('regexSearchTerm').value = data.searchTerm || '';
                     document.getElementById('searchLocation').value = data.searchLocation || '';
 
                     const options = data.options || {};
@@ -759,18 +798,32 @@ export class FastPfuriousSearchModal {
                         document.getElementById('afterContext').value = options.afterContext || 3;
                     }
 
-                    // Add recent search terms
-                    const recentTermsContainer = document.getElementById('recentTerms');
-                    recentTermsContainer.innerHTML = '';
+                    // Add recent search terms for Basic Search
+                    const basicRecentTermsContainer = document.getElementById('basicRecentTerms');
+                    basicRecentTermsContainer.innerHTML = '';
                     if (data.recentSearchTerms && data.recentSearchTerms.length > 0) {
                         data.recentSearchTerms.forEach(term => {
                             const button = document.createElement('button');
                             button.className = 'recent-term';
                             button.textContent = term;
                             button.type = 'button';
-                            recentTermsContainer.appendChild(button);
+                            basicRecentTermsContainer.appendChild(button);
                         });
-                        addRecentTermClickHandler();
+                        addBasicRecentTermClickHandler();
+                    }
+
+                    // Add recent search terms for REGEX Search
+                    const regexRecentTermsContainer = document.getElementById('regexRecentTerms');
+                    regexRecentTermsContainer.innerHTML = '';
+                    if (data.recentSearchTerms && data.recentSearchTerms.length > 0) {
+                        data.recentSearchTerms.forEach(term => {
+                            const button = document.createElement('button');
+                            button.className = 'recent-term';
+                            button.textContent = term;
+                            button.type = 'button';
+                            regexRecentTermsContainer.appendChild(button);
+                        });
+                        addRegexRecentTermClickHandler();
                     }
 
                     // Add recent locations
