@@ -5,6 +5,46 @@ All notable changes to the "PFGREP Search for IBM i" extension will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2025-01-11
+
+### 🎯 Major UX Refinements - Tab-Based Search & Granular Location Support
+
+### Added
+- **Tabbed search mode interface** - Clean "Basic Search" and "REGEX Search" tabs instead of checkbox
+- **Search Location granularity** - Support for LIB/FILE/MEMBER patterns (e.g., `MYLIB/QRPGSRC/PROG*`)
+- **Quote warning tooltip** - Persistent warning when search term contains quotes
+- **Before context lines** - Added -B flag support (previously only had -A for after)
+- **Separate before/after inputs** - Individual controls for context lines before and after matches
+- **Wildcard validation** - Only allows wildcards at end of words (PROD* valid, *PROD invalid)
+
+### Changed
+- **"Libraries" → "Search Location"** - Renamed field to reflect granular library/file/member support
+- **Tab-based mode selection** - Replaced "Smart-search (REGEX)" checkbox with subtle tab UI
+- **Default context lines** - Changed from 0 to 2 before and 2 after
+- **Settings migration** - All settings reset to new defaults on upgrade to v1.1.1
+
+### Fixed
+- **Double-quote search bug** - Removed auto-quote wrapping that broke searches with literal quotes
+- **Multi-word searches** - No longer auto-wrapped, search terms used exactly as typed
+- **Context line parser** - Enhanced to handle both -A and -B flags with proper line detection
+
+### UI/UX Improvements
+- **Persistent quote warning** - Shows whenever user types quotes (single or double)
+- **Context lines expand/collapse** - Before/After inputs only shown when "Show Context Lines" checked
+- **Search location examples** - Added helpful placeholder examples for all supported formats
+- **Help tooltips updated** - New (?) icons with comprehensive explanations for Search Location and Context Lines
+
+### Technical Changes
+- Updated `SearchFormData` interface to include `searchMode` and `beforeContext`
+- Added `parseSearchLocation()` method with wildcard validation
+- Enhanced `buildPFGREPCommand()` to support -B flag
+- Implemented version migration system in `SettingsManager`
+- Updated default settings to include beforeContext: 2, afterContext: 2
+
+### Breaking Changes
+- **Settings reset required** - All saved patterns and settings cleared on upgrade
+- **Search location format** - Old comma-separated library lists still work, but new format supports file/member granularity
+
 ## [1.1.0] - 2025-01-09
 
 ### 🎉 Major UI/UX Overhaul - Simplified Search Experience

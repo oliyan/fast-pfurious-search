@@ -73,14 +73,15 @@ export class FastPfuriousSearchModal {
         this.panel.webview.postMessage({
             command: 'setDefaults',
             data: {
-                libraries: '', // Always start with empty libraries field
+                searchLocation: '', // Always start with empty search location field
                 searchTerm: '', // Don't pre-populate search term either
                 recentSearchTerms: recentSearchTerms.slice(0, 5), // Max 5 recent search terms
-                recentLibraries: recentLibraries.slice(0, 5), // Max 5 recent library patterns
+                recentLocations: recentLibraries.slice(0, 5), // Max 5 recent location patterns
                 options: {
                     caseSensitive: defaultOptions.caseSensitive ?? false,  // Default: case insensitive
                     smartSearchRegex: defaultOptions.smartSearchRegex ?? false,  // Default: normal search
-                    afterContext: defaultOptions.afterContext ?? 0  // Default: no context lines
+                    beforeContext: defaultOptions.beforeContext ?? 2,  // Default: 2 lines before
+                    afterContext: defaultOptions.afterContext ?? 2  // Default: 2 lines after
                 }
             }
         });
@@ -91,14 +92,12 @@ export class FastPfuriousSearchModal {
      */
     private async executeSearch(formData: any): Promise<void> {
         try {
-            // Parse libraries
-            const libraries = formData.libraries
-                .split(',')
-                .map((lib: string) => lib.trim().toUpperCase())
-                .filter((lib: string) => lib.length > 0);
+            // Parse search location (supports LIB, LIB/FILE, LIB/FILE/MEMBER patterns)
+            const searchLocation = formData.searchLocation || formData.libraries; // Support both old and new field names
+            const libraries = this.parseSearchLocation(searchLocation);
 
             if (libraries.length === 0) {
-                this.showWebviewError('Please enter at least one library name');
+                this.showWebviewError('Please enter at least one search location');
                 return;
             }
 
@@ -108,20 +107,20 @@ export class FastPfuriousSearchModal {
             }
 
             const searchTerm = formData.searchTerm.trim();
-            const isRegexMode = formData.smartSearchRegex === true;
+            const isRegexMode = formData.smartSearchRegex === true || formData.searchMode === 'regex';
 
             // Build search options
             const options: FastPfuriousOptions = {
                 searchTerm: searchTerm,
                 libraries,
                 caseSensitive: formData.caseSensitive === true,  // Default false (case insensitive)
-                smartSearchRegex: formData.smartSearchRegex === true,  // Default false (normal search)
+                smartSearchRegex: isRegexMode,  // Default false (normal search)
                 beforeContext: formData.beforeContext && formData.beforeContext > 0 ? parseInt(formData.beforeContext) : undefined,
                 afterContext: formData.afterContext && formData.afterContext > 0 ? parseInt(formData.afterContext) : undefined
             };
 
-            // Update recent libraries (complete pattern) and search history
-            await this.settingsManager.updateRecentLibraries(formData.libraries);
+            // Update recent locations (complete pattern) and search history
+            await this.settingsManager.updateRecentLibraries(searchLocation);
             await this.settingsManager.updateSearchHistory(formData.searchTerm);
 
             // Show searching status in webview
@@ -136,6 +135,50 @@ export class FastPfuriousSearchModal {
         } catch (error: any) {
             this.showWebviewError(`Search failed: ${error.message}`);
         }
+    }
+
+    /**
+     * Parse search location into library paths
+     * Supports formats: MYLIB, MYLIB/QRPGSRC, MYLIB/QRPGSRC/PROG*, star-slash-QCLSRC
+     * Wildcards only allowed at END of words
+     */
+    private parseSearchLocation(searchLocation: string): string[] {
+        const locations = searchLocation
+            .split(',')
+            .map((loc: string) => loc.trim().toUpperCase())
+            .filter((loc: string) => loc.length > 0);
+
+        const libraries: string[] = [];
+
+        for (const location of locations) {
+            // Validate wildcard placement (only at end of words)
+            const parts = location.split('/');
+            for (const part of parts) {
+                if (part.includes('*') && !part.endsWith('*') && part !== '*') {
+                    throw new Error(`Invalid wildcard placement in "${location}". Wildcards only allowed at end: e.g., PROD*, not *PROD or PR*OD`);
+                }
+                // Reject empty components (except explicit *)
+                if (part === '' && location !== '*') {
+                    throw new Error(`Invalid search location "${location}". Empty components not allowed. Use explicit '*' if needed.`);
+                }
+            }
+
+            // Convert to library path based on format
+            if (parts.length === 1) {
+                // Simple library: MYLIB or PROD*
+                libraries.push(parts[0]);
+            } else if (parts.length === 2) {
+                // Library + File: MYLIB/QRPGSRC or */QCLSRC
+                libraries.push(`${parts[0]}/${parts[1]}`);
+            } else if (parts.length === 3) {
+                // Library + File + Member: MYLIB/QRPGSRC/PROG*
+                libraries.push(`${parts[0]}/${parts[1]}/${parts[2]}`);
+            } else {
+                throw new Error(`Invalid search location format: "${location}". Use MYLIB, MYLIB/FILE, or MYLIB/FILE/MEMBER`);
+            }
+        }
+
+        return libraries;
     }
 
     /**
@@ -189,6 +232,35 @@ export class FastPfuriousSearchModal {
             margin: 0 auto;
         }
 
+        /* Tab styling */
+        .search-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--vscode-panel-border);
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--vscode-descriptionForeground);
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .tab-button.active {
+            color: var(--vscode-focusBorder);
+            border-bottom-color: var(--vscode-focusBorder);
+            font-weight: 600;
+        }
+
+        .tab-button:hover:not(.active) {
+            color: var(--vscode-foreground);
+        }
+
         .form-group {
             margin-bottom: 16px;
         }
@@ -215,6 +287,30 @@ export class FastPfuriousSearchModal {
         input[type="text"]:focus, input[type="number"]:focus {
             outline: none;
             border-color: var(--vscode-focusBorder);
+        }
+
+        .quote-warning {
+            display: none;
+            background-color: var(--vscode-inputValidation-warningBackground);
+            border: 1px solid var(--vscode-inputValidation-warningBorder);
+            color: var(--vscode-inputValidation-warningForeground);
+            padding: 6px 10px;
+            margin-top: 6px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        .quote-warning.show {
+            display: block;
+        }
+
+        .mode-tip {
+            background-color: var(--vscode-textBlockQuote-background);
+            border-left: 3px solid var(--vscode-textBlockQuote-border);
+            padding: 8px 12px;
+            margin-top: 6px;
+            font-size: 12px;
+            color: var(--vscode-descriptionForeground);
         }
 
         .recent-terms {
@@ -280,13 +376,33 @@ export class FastPfuriousSearchModal {
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         }
 
-        .mode-tip {
-            background-color: var(--vscode-textBlockQuote-background);
-            border-left: 3px solid var(--vscode-textBlockQuote-border);
-            padding: 8px 12px;
-            margin-top: 6px;
+        .context-inputs {
+            display: none;
+            margin-left: 24px;
+            margin-top: 8px;
+            padding: 10px;
+            background-color: var(--vscode-editor-inactiveSelectionBackground);
+            border-radius: 3px;
+        }
+
+        .context-inputs.show {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .context-input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .context-input-group label {
             font-size: 12px;
-            color: var(--vscode-descriptionForeground);
+            margin-bottom: 4px;
+        }
+
+        .context-input-group input {
+            width: 100%;
         }
 
         .search-button {
@@ -387,21 +503,33 @@ export class FastPfuriousSearchModal {
     <div class="container">
         <h2>Fast & PF-urious Search</h2>
 
+        <!-- Tab Selection -->
+        <div class="search-tabs">
+            <button id="basicSearchTab" class="tab-button active" type="button">Basic Search</button>
+            <button id="regexSearchTab" class="tab-button" type="button">REGEX Search</button>
+        </div>
+
         <form id="searchForm">
             <div class="form-group">
                 <label for="searchTerm">Search Term:</label>
                 <input type="text" id="searchTerm" name="searchTerm" placeholder="Enter text to search for..." required>
+                <div class="quote-warning" id="quoteWarning">
+                    ⚠️ Your search contains quotes. The quote characters will be included in the search.
+                </div>
                 <div class="mode-tip" id="modeTip">
-                    💡 Tip: Use quotes for exact phrases with spaces (e.g., "EXEC SQL")
+                    💡 Tip: Multi-word searches are treated as phrases in Basic Search mode
                 </div>
                 <div class="recent-terms" id="recentTerms"></div>
             </div>
 
             <div class="form-group">
-                <label for="libraries">Libraries:</label>
-                <input type="text" id="libraries" name="libraries" placeholder="LIB1,LIB2,PROD*,*DEV" required>
-                <div class="placeholder-text">Comma-separated library names or patterns (wildcards supported)</div>
-                <div class="recent-terms" id="recentLibraries"></div>
+                <label for="searchLocation">
+                    Search Location:
+                    <span class="help-icon" data-help="searchLocation">?</span>
+                </label>
+                <input type="text" id="searchLocation" name="searchLocation" placeholder="Mylib/file/memb*" required>
+                <div class="placeholder-text">Examples: MYLIB, MYLIB/QRPGSRC, */QCLSRC, MYLIB/QRPGSRC/PROG*</div>
+                <div class="recent-terms" id="recentLocations"></div>
             </div>
 
             <div class="form-group">
@@ -412,16 +540,19 @@ export class FastPfuriousSearchModal {
                     <span class="help-icon" data-help="caseSensitive">?</span>
                 </div>
                 <div class="checkbox-item">
-                    <input type="checkbox" id="smartSearchRegex" name="smartSearchRegex">
-                    <label for="smartSearchRegex" style="display: inline; font-weight: normal;">Smart-search (REGEX)</label>
-                    <span class="help-icon" data-help="smartSearchRegex">?</span>
+                    <input type="checkbox" id="showContextLines" name="showContextLines">
+                    <label for="showContextLines" style="display: inline; font-weight: normal;">Show Context Lines</label>
+                    <span class="help-icon" data-help="contextLines">?</span>
                 </div>
-                <div class="checkbox-item">
-                    <input type="checkbox" id="afterContextEnabled" name="afterContextEnabled">
-                    <label for="afterContextEnabled" style="display: inline; font-weight: normal;">Show Context Lines</label>
-                    <span class="help-icon" data-help="afterContext">?</span>
-                    <input type="number" id="afterContext" name="afterContext" min="0" max="50" placeholder="Lines (0-50)"
-                           style="width: 120px; margin-left: 12px; display: none;">
+                <div id="contextInputs" class="context-inputs">
+                    <div class="context-input-group">
+                        <label for="beforeContext">Before:</label>
+                        <input type="number" id="beforeContext" name="beforeContext" min="0" max="50" value="2">
+                    </div>
+                    <div class="context-input-group">
+                        <label for="afterContext">After:</label>
+                        <input type="number" id="afterContext" name="afterContext" min="0" max="50" value="2">
+                    </div>
                 </div>
             </div>
 
@@ -439,32 +570,61 @@ export class FastPfuriousSearchModal {
 
     <script>
         const vscode = acquireVsCodeApi();
+        let currentSearchMode = 'basic'; // Track current mode
 
         // Help tooltip content
         const helpContent = {
             caseSensitive: 'When checked, search will match exact case. Default is OFF (case-insensitive).<br><br>Example: With this OFF, "SQL" matches "sql", "SQL", "Sql"',
-            smartSearchRegex: 'Enable regex pattern matching. Default is OFF (normal text search).<br><br>Example: <code>\\bCVTDT\\b</code> matches whole word CVTDT',
-            afterContext: 'Show N lines after each match for context. Range: 0-50 lines.<br><br>Example: 3 lines shows the 3 lines following each match'
+            searchLocation: 'Specify where to search. Supports library, file, and member patterns with wildcards (* only at end).<br><br>Examples:<br>• MYLIB - entire library<br>• MYLIB/QRPGSRC - specific file<br>• MYLIB/*/PROG* - members starting with PROG in all files<br>• */QCLSRC - QCLSRC in all libraries',
+            contextLines: 'Show lines before and after each match for context. Range: 0-50 lines for each.<br><br>Example: Before=2, After=2 shows 2 lines surrounding each match'
         };
 
-        // Show/hide context lines input based on checkbox
-        document.getElementById('afterContextEnabled').addEventListener('change', function() {
-            const contextInput = document.getElementById('afterContext');
-            contextInput.style.display = this.checked ? 'inline-block' : 'none';
-            if (!this.checked) {
-                contextInput.value = '';
+        // Tab switching logic
+        document.getElementById('basicSearchTab').addEventListener('click', function() {
+            if (currentSearchMode === 'basic') return;
+            currentSearchMode = 'basic';
+            document.getElementById('basicSearchTab').classList.add('active');
+            document.getElementById('regexSearchTab').classList.remove('active');
+            updateModeTip();
+        });
+
+        document.getElementById('regexSearchTab').addEventListener('click', function() {
+            if (currentSearchMode === 'regex') return;
+            currentSearchMode = 'regex';
+            document.getElementById('regexSearchTab').classList.add('active');
+            document.getElementById('basicSearchTab').classList.remove('active');
+            updateModeTip();
+        });
+
+        // Update mode tip based on current tab
+        function updateModeTip() {
+            const modeTip = document.getElementById('modeTip');
+            if (currentSearchMode === 'regex') {
+                modeTip.textContent = '💡 Tip: Use regex patterns like \\\\bWORD\\\\b for whole words, ^START for line start';
             } else {
-                contextInput.value = contextInput.value || '3';  // Default to 3 lines
+                modeTip.textContent = '💡 Tip: Multi-word searches are treated as phrases in Basic Search mode';
+            }
+        }
+
+        // Quote detection and warning
+        document.getElementById('searchTerm').addEventListener('input', function() {
+            const searchTerm = this.value;
+            const quoteWarning = document.getElementById('quoteWarning');
+
+            if (searchTerm.includes('"') || searchTerm.includes("'")) {
+                quoteWarning.classList.add('show');
+            } else {
+                quoteWarning.classList.remove('show');
             }
         });
 
-        // Update mode tip based on regex checkbox
-        document.getElementById('smartSearchRegex').addEventListener('change', function() {
-            const modeTip = document.getElementById('modeTip');
+        // Show/hide context lines inputs based on checkbox
+        document.getElementById('showContextLines').addEventListener('change', function() {
+            const contextInputs = document.getElementById('contextInputs');
             if (this.checked) {
-                modeTip.textContent = '💡 Tip: Use regex patterns like \\\\bWORD\\\\b for whole words, ^START for line start';
+                contextInputs.classList.add('show');
             } else {
-                modeTip.textContent = '💡 Tip: Use quotes for exact phrases with spaces (e.g., "EXEC SQL")';
+                contextInputs.classList.remove('show');
             }
         });
 
@@ -534,8 +694,9 @@ export class FastPfuriousSearchModal {
             e.preventDefault();
 
             const searchTerm = document.getElementById('searchTerm').value.trim();
-            const isRegexMode = document.getElementById('smartSearchRegex').checked;
-            const afterContextEnabled = document.getElementById('afterContextEnabled').checked;
+            const isRegexMode = currentSearchMode === 'regex';
+            const showContext = document.getElementById('showContextLines').checked;
+            const beforeContextValue = document.getElementById('beforeContext').value;
             const afterContextValue = document.getElementById('afterContext').value;
 
             // Validate regex if in regex mode
@@ -544,10 +705,12 @@ export class FastPfuriousSearchModal {
                 return;
             }
 
-            // Validate after context lines
-            if (afterContextEnabled) {
-                const contextLines = parseInt(afterContextValue);
-                if (isNaN(contextLines) || contextLines < 0 || contextLines > 50) {
+            // Validate context lines
+            if (showContext) {
+                const beforeLines = parseInt(beforeContextValue);
+                const afterLines = parseInt(afterContextValue);
+                if (isNaN(beforeLines) || beforeLines < 0 || beforeLines > 50 ||
+                    isNaN(afterLines) || afterLines < 0 || afterLines > 50) {
                     alert('Context lines must be between 0 and 50');
                     return;
                 }
@@ -555,10 +718,11 @@ export class FastPfuriousSearchModal {
 
             const options = {
                 searchTerm: searchTerm,
-                libraries: document.getElementById('libraries').value,
+                searchLocation: document.getElementById('searchLocation').value,
                 caseSensitive: document.getElementById('caseSensitive').checked,
-                smartSearchRegex: isRegexMode,
-                afterContext: afterContextEnabled && afterContextValue ? parseInt(afterContextValue) : 0
+                searchMode: currentSearchMode,
+                beforeContext: showContext && beforeContextValue ? parseInt(beforeContextValue) : 0,
+                afterContext: showContext && afterContextValue ? parseInt(afterContextValue) : 0
             };
 
             vscode.postMessage({
@@ -582,23 +746,17 @@ export class FastPfuriousSearchModal {
             document.querySelectorAll('.recent-term').forEach(button => {
                 button.addEventListener('click', function() {
                     document.getElementById('searchTerm').value = this.textContent;
+                    // Trigger input event to check for quotes
+                    document.getElementById('searchTerm').dispatchEvent(new Event('input'));
                 });
             });
         }
 
-        // Handle recent library clicks (appends text)
-        function addRecentLibraryClickHandler() {
+        // Handle recent location clicks (replaces text)
+        function addRecentLocationClickHandler() {
             document.querySelectorAll('.recent-library').forEach(button => {
                 button.addEventListener('click', function() {
-                    const librariesInput = document.getElementById('libraries');
-                    const currentValue = librariesInput.value.trim();
-                    const newLibrary = this.textContent;
-
-                    if (currentValue) {
-                        librariesInput.value = currentValue + ',' + newLibrary;
-                    } else {
-                        librariesInput.value = newLibrary;
-                    }
+                    document.getElementById('searchLocation').value = this.textContent;
                 });
             });
         }
@@ -612,16 +770,18 @@ export class FastPfuriousSearchModal {
                     const data = message.data;
 
                     document.getElementById('searchTerm').value = data.searchTerm || '';
-                    document.getElementById('libraries').value = data.libraries || '';
+                    document.getElementById('searchLocation').value = data.searchLocation || '';
 
                     const options = data.options || {};
                     document.getElementById('caseSensitive').checked = options.caseSensitive || false;
-                    document.getElementById('smartSearchRegex').checked = options.smartSearchRegex || false;
 
-                    if (options.afterContext && options.afterContext > 0) {
-                        document.getElementById('afterContextEnabled').checked = true;
-                        document.getElementById('afterContext').value = options.afterContext;
-                        document.getElementById('afterContext').style.display = 'inline-block';
+                    // Handle context lines
+                    if ((options.beforeContext && options.beforeContext > 0) ||
+                        (options.afterContext && options.afterContext > 0)) {
+                        document.getElementById('showContextLines').checked = true;
+                        document.getElementById('contextInputs').classList.add('show');
+                        document.getElementById('beforeContext').value = options.beforeContext || 2;
+                        document.getElementById('afterContext').value = options.afterContext || 2;
                     }
 
                     // Add recent search terms
@@ -638,18 +798,18 @@ export class FastPfuriousSearchModal {
                         addRecentTermClickHandler();
                     }
 
-                    // Add recent libraries
-                    const recentLibrariesContainer = document.getElementById('recentLibraries');
-                    recentLibrariesContainer.innerHTML = '';
-                    if (data.recentLibraries && data.recentLibraries.length > 0) {
-                        data.recentLibraries.forEach(libraryPattern => {
+                    // Add recent locations
+                    const recentLocationsContainer = document.getElementById('recentLocations');
+                    recentLocationsContainer.innerHTML = '';
+                    if (data.recentLocations && data.recentLocations.length > 0) {
+                        data.recentLocations.forEach(locationPattern => {
                             const button = document.createElement('button');
                             button.className = 'recent-library';
-                            button.textContent = libraryPattern;
+                            button.textContent = locationPattern;
                             button.type = 'button';
-                            recentLibrariesContainer.appendChild(button);
+                            recentLocationsContainer.appendChild(button);
                         });
-                        addRecentLibraryClickHandler();
+                        addRecentLocationClickHandler();
                     }
                     break;
 

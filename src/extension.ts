@@ -9,13 +9,16 @@ let resultsManager: FastPfuriousResultsManager;
 let settingsManager: SettingsManager;
 let searchModal: FastPfuriousSearchModal;
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
     console.log('Fast & PF-urious Search is now active!');
 
     // Initialize managers
     resultsManager = new FastPfuriousResultsManager(context);
     settingsManager = new SettingsManager(context);
     searchModal = new FastPfuriousSearchModal(context, resultsManager);
+
+    // Initialize settings and handle version migration
+    await settingsManager.initialize();
 
     // Register tree provider commands
     FastPfuriousResultsTreeProvider.registerCommands(context);
@@ -128,9 +131,6 @@ export function activate(context: vscode.ExtensionContext) {
         resultsTreeView,
         resultsManager
     );
-
-    // Initialize settings on first activation
-    settingsManager.initialize();
 
     // Show welcome message on first use
     const hasShownWelcome = context.globalState.get('fast-pfurious-search.hasShownWelcome', false);
