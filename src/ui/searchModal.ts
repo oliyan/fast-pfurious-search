@@ -366,14 +366,23 @@ export class FastPfuriousSearchModal {
 
         .help-tooltip {
             position: fixed;
-            background-color: var(--vscode-editorHoverWidget-background);
-            border: 1px solid var(--vscode-editorHoverWidget-border);
+            background-color: var(--vscode-editorHoverWidget-background, var(--vscode-editor-background));
+            border: 2px solid var(--vscode-editorHoverWidget-border, var(--vscode-focusBorder));
             border-radius: 4px;
-            padding: 8px 12px;
-            max-width: 300px;
-            font-size: 12px;
-            z-index: 1000;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            padding: 12px 16px;
+            max-width: 400px;
+            font-size: 13px;
+            line-height: 1.5;
+            z-index: 10000;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+            color: var(--vscode-foreground);
+        }
+
+        .help-tooltip code {
+            background-color: var(--vscode-textCodeBlock-background);
+            padding: 2px 4px;
+            border-radius: 2px;
+            font-family: monospace;
         }
 
         .context-input {
@@ -547,8 +556,8 @@ export class FastPfuriousSearchModal {
         // Help tooltip content
         const helpContent = {
             caseSensitive: 'When checked, search will match exact case. Default is OFF (case-insensitive).<br><br>Example: With this OFF, "SQL" matches "sql", "SQL", "Sql"',
-            searchLocation: 'Specify where to search. Supports library, file, and member patterns with wildcards (* only at end).<br><br>Examples:<br>• MYLIB - entire library<br>• MYLIB/QRPGSRC - specific file<br>• MYLIB/*/PROG* - members starting with PROG in all files<br>• */QCLSRC - QCLSRC in all libraries',
-            contextLines: 'Show lines before and after each match for context. Range: 0-50 lines for each.<br><br>Example: Before=2, After=2 shows 2 lines surrounding each match'
+            searchLocation: 'Specify where to search. Supports library, file, and member patterns with wildcards (* only at end).<br><br><b>Examples:</b><br>• <code>MYLIB</code> - entire library<br>• <code>MYLIB/QRPGLESRC</code> - specific file<br>• <code>MYLIB/QRPGLESRC/PROG*</code> - members starting with PROG<br>• <code>*/QCLSRC</code> - QCLSRC in all libraries<br>• <code>AGO*/QRPGLESRC/*</code> - all members in QRPGLESRC for libraries starting with AGO',
+            contextLines: 'Show N lines after each match for context. Range: 0-50 lines.<br><br><b>Example:</b> Entering 3 will show the 3 lines following each match.<br><br><b>Note:</b> PFGREP only supports "after" context lines, not "before".'
         };
 
         // Tab switching logic
