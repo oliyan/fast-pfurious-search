@@ -376,33 +376,14 @@ export class FastPfuriousSearchModal {
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
         }
 
-        .context-inputs {
+        .context-input {
             display: none;
-            margin-left: 24px;
-            margin-top: 8px;
-            padding: 10px;
-            background-color: var(--vscode-editor-inactiveSelectionBackground);
-            border-radius: 3px;
+            width: 120px;
+            margin-left: 12px;
         }
 
-        .context-inputs.show {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
-
-        .context-input-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .context-input-group label {
-            font-size: 12px;
-            margin-bottom: 4px;
-        }
-
-        .context-input-group input {
-            width: 100%;
+        .context-input.show {
+            display: inline-block;
         }
 
         .search-button {
@@ -541,18 +522,9 @@ export class FastPfuriousSearchModal {
                 </div>
                 <div class="checkbox-item">
                     <input type="checkbox" id="showContextLines" name="showContextLines">
-                    <label for="showContextLines" style="display: inline; font-weight: normal;">Show Context Lines</label>
+                    <label for="showContextLines" style="display: inline; font-weight: normal;">Show Context Lines (After)</label>
                     <span class="help-icon" data-help="contextLines">?</span>
-                </div>
-                <div id="contextInputs" class="context-inputs">
-                    <div class="context-input-group">
-                        <label for="beforeContext">Before:</label>
-                        <input type="number" id="beforeContext" name="beforeContext" min="0" max="50" value="2">
-                    </div>
-                    <div class="context-input-group">
-                        <label for="afterContext">After:</label>
-                        <input type="number" id="afterContext" name="afterContext" min="0" max="50" value="2">
-                    </div>
+                    <input type="number" id="afterContext" name="afterContext" class="context-input" min="0" max="50" value="3" placeholder="Lines (0-50)">
                 </div>
             </div>
 

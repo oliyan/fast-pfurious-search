@@ -107,12 +107,8 @@ export class FastPfuriousExecutor {
         // Hardcode max matches to 5000
         flags.push('-m 5000');
 
-        // Before context lines (optional, 0-50)
-        if (options.beforeContext && options.beforeContext > 0) {
-            flags.push(`-B ${options.beforeContext}`);
-        }
-
         // After context lines (optional, 0-50)
+        // NOTE: PFGREP only supports -A (after), not -B (before)
         if (options.afterContext && options.afterContext > 0) {
             flags.push(`-A ${options.afterContext}`);
         }
@@ -134,12 +130,36 @@ export class FastPfuriousExecutor {
 
     /**
      * Build library paths from library list
+     * Supports formats like MYLIB, MYLIB/QRPGLESRC, MYLIB/QRPGLESRC/MYPGM with wildcards
      */
     private static buildLibraryPaths(libraries: string[]): string {
         const paths: string[] = [];
 
         for (const library of libraries) {
-            if (library === '*ALL' || library === 'ALL') {
+            // Check if this is a granular pattern (contains /)
+            if (library.includes('/')) {
+                const parts = library.split('/');
+
+                if (parts.length === 2) {
+                    // Library + File: MYLIB/QRPGLESRC or */QCLSRC
+                    const lib = parts[0];
+                    const file = parts[1];
+                    paths.push(`/QSYS.LIB/${lib}.LIB/${file}.FILE`);
+                } else if (parts.length === 3) {
+                    // Library + File + Member: MYLIB/QRPGLESRC/PROG* or MYLIB/*/*
+                    const lib = parts[0];
+                    const file = parts[1];
+                    const member = parts[2];
+
+                    if (member === '*') {
+                        // All members: MYLIB/QRPGLESRC/*
+                        paths.push(`/QSYS.LIB/${lib}.LIB/${file}.FILE/*.MBR`);
+                    } else {
+                        // Specific member or wildcard: MYLIB/QRPGLESRC/MYPGM or MYLIB/QRPGLESRC/PROG*
+                        paths.push(`/QSYS.LIB/${lib}.LIB/${file}.FILE/${member}.MBR`);
+                    }
+                }
+            } else if (library === '*ALL' || library === 'ALL') {
                 // Special case for all libraries - use generic search path
                 paths.push('/QSYS.LIB/*.LIB');
             } else if (library.includes(',')) {
@@ -149,7 +169,7 @@ export class FastPfuriousExecutor {
                     paths.push(`/QSYS.LIB/${lib}.LIB`);
                 });
             } else if (library.includes('*')) {
-                // Handle wildcards: "PROD*", "*TEST"
+                // Handle wildcards: "PROD*", "AGO*"
                 paths.push(`/QSYS.LIB/${library.toUpperCase()}.LIB`);
             } else {
                 // Regular library name
