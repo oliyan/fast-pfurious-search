@@ -590,13 +590,13 @@ export class FastPfuriousSearchModal {
             }
         });
 
-        // Show/hide context lines inputs based on checkbox
+        // Show/hide context lines input based on checkbox
         document.getElementById('showContextLines').addEventListener('change', function() {
-            const contextInputs = document.getElementById('contextInputs');
+            const contextInput = document.getElementById('afterContext');
             if (this.checked) {
-                contextInputs.classList.add('show');
+                contextInput.classList.add('show');
             } else {
-                contextInputs.classList.remove('show');
+                contextInput.classList.remove('show');
             }
         });
 
@@ -668,7 +668,6 @@ export class FastPfuriousSearchModal {
             const searchTerm = document.getElementById('searchTerm').value.trim();
             const isRegexMode = currentSearchMode === 'regex';
             const showContext = document.getElementById('showContextLines').checked;
-            const beforeContextValue = document.getElementById('beforeContext').value;
             const afterContextValue = document.getElementById('afterContext').value;
 
             // Validate regex if in regex mode
@@ -679,10 +678,8 @@ export class FastPfuriousSearchModal {
 
             // Validate context lines
             if (showContext) {
-                const beforeLines = parseInt(beforeContextValue);
                 const afterLines = parseInt(afterContextValue);
-                if (isNaN(beforeLines) || beforeLines < 0 || beforeLines > 50 ||
-                    isNaN(afterLines) || afterLines < 0 || afterLines > 50) {
+                if (isNaN(afterLines) || afterLines < 0 || afterLines > 50) {
                     alert('Context lines must be between 0 and 50');
                     return;
                 }
@@ -693,7 +690,6 @@ export class FastPfuriousSearchModal {
                 searchLocation: document.getElementById('searchLocation').value,
                 caseSensitive: document.getElementById('caseSensitive').checked,
                 searchMode: currentSearchMode,
-                beforeContext: showContext && beforeContextValue ? parseInt(beforeContextValue) : 0,
                 afterContext: showContext && afterContextValue ? parseInt(afterContextValue) : 0
             };
 
@@ -748,12 +744,10 @@ export class FastPfuriousSearchModal {
                     document.getElementById('caseSensitive').checked = options.caseSensitive || false;
 
                     // Handle context lines
-                    if ((options.beforeContext && options.beforeContext > 0) ||
-                        (options.afterContext && options.afterContext > 0)) {
+                    if (options.afterContext && options.afterContext > 0) {
                         document.getElementById('showContextLines').checked = true;
-                        document.getElementById('contextInputs').classList.add('show');
-                        document.getElementById('beforeContext').value = options.beforeContext || 2;
-                        document.getElementById('afterContext').value = options.afterContext || 2;
+                        document.getElementById('afterContext').classList.add('show');
+                        document.getElementById('afterContext').value = options.afterContext || 3;
                     }
 
                     // Add recent search terms
