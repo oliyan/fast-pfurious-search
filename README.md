@@ -54,20 +54,37 @@ Add these settings to your VS Code settings:
 
 ## Search Options
 
-### Basic Options
-- **Case Insensitive**: Ignore case when matching (enabled by default)
-- **Fixed String**: Treat search term as literal text, not regex
-- **Whole Words**: Match complete words only
-- **Show Line Numbers**: Include line numbers in results
+### Search Modes
+
+**Normal Search (Default)**
+- Searches for exact text matches
+- Multi-word searches are automatically wrapped in quotes
+- Use manual quotes for exact phrases: `"EXEC SQL"`
+- Case-insensitive by default
+
+**Smart-search (REGEX) Mode**
+- Enable regex pattern matching
+- Use patterns like `\bCVTDT\b` for whole words
+- Use `^START` for lines starting with text
+- Use `.*` for wildcards
+
+### Options
+- **Case Sensitive**: When checked, matches exact case. Default is OFF (case-insensitive)
+- **Smart-search (REGEX)**: Enable regex patterns. Default is OFF (normal text search)
+- **Show Context Lines**: Display N lines after each match (0-50). Helpful for understanding code context
 
 ### Library Patterns
 ```
 MYLIB                    # Single library
-MYLIB,YOURLIB           # Multiple specific libraries  
+MYLIB,YOURLIB           # Multiple specific libraries
 PROD*                   # All libraries starting with PROD
 *TEST                   # All libraries ending with TEST
 PROD*,*TEST,MYLIB       # Combination of patterns
 ```
+
+### Search Limits
+- Maximum matches per search: **5000 lines**
+- You'll receive a warning if this limit is reached
 
 ## Comparison with Other Tools
 
@@ -105,47 +122,22 @@ If you get "PFGREP is not installed" error:
 
 ---
 
-## Advanced Configuration (Under Review)
+## Usage Examples
 
-> **Note**: These advanced options are under review and may be removed or modified in future versions.
-
-### Advanced Search Options
-
-| Option | Description | Default |
-|--------|-------------|---------|
-| **Invert Matches** | Find lines that DON'T contain the search term | ❌ Disabled |
-| **Silent Errors** | Suppress error messages during search | ❌ Disabled |
-| **Non-Source Files** | Include non-source physical files | ❌ Disabled |
-| **Don't Trim Whitespace** | Preserve leading/trailing spaces | ❌ Disabled |
-| **Max Matches** | Limit the number of results returned | No limit |
-| **After Context Lines** | Show N lines after each match | 0 |
-
-### Advanced Settings
-
-```json
-{
-    "pfgrep-ibmi.enableSilentErrors": false,
-    "pfgrep-ibmi.includeNonSourceFiles": false,
-    "pfgrep-ibmi.preserveWhitespace": false,
-    "pfgrep-ibmi.defaultMaxMatches": 0,
-    "pfgrep-ibmi.defaultAfterContext": 0,
-    "pfgrep-ibmi.enableInvertMatch": false
-}
+### Normal Search Examples
+```
+SQL                     # Find "SQL" (case-insensitive)
+EXEC SQL               # Auto-wrapped as "EXEC SQL" for exact phrase
+"fixed   spaces"       # Preserve exact spacing
+CVTDT                  # Simple text search
 ```
 
-### Advanced Usage Examples
-
-#### Complex Search Patterns (Regex)
+### Regex Search Examples
 ```
-^DCL-                   # Lines starting with DCL-
-\bCVTDT\b              # Whole word CVTDT
-EXEC\s+SQL             # EXEC followed by SQL with variable whitespace
-```
-
-#### Advanced Library Selection
-```
-MYLIB*,!MYLIBTEST      # All MYLIB* libraries except MYLIBTEST
-*PROD,*TEST,MYDEV      # Multiple pattern combinations
+^DCL-                  # Lines starting with DCL-
+\bCVTDT\b             # Whole word CVTDT only
+EXEC\s+SQL            # EXEC followed by SQL with any whitespace
+(SELECT|INSERT|UPDATE) # Match any of these SQL keywords
 ```
 
 ---

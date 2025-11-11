@@ -83,29 +83,35 @@ export class FastPfuriousExecutor {
     private static buildPFGREPCommand(options: FastPfuriousOptions): string {
         const flags: string[] = [];
 
-        // Main UI flags
-        if (options.caseInsensitive) flags.push('-i');
-        if (options.fixedString) flags.push('-F');
-        if (options.wholeWords) flags.push('-w');
-        if (options.recursive) flags.push('-r');
-
-        // Advanced flags
-        if (options.showLineNumbers) flags.push('-n');
-        if (options.invertMatch) flags.push('-v');
-        if (options.silentErrors) flags.push('-s');
-        if (options.nonSourceFiles) flags.push('-p');
-        if (options.dontTrimWhitespace) flags.push('-t');
-
-        // Flags with values
-        if (options.maxMatches && options.maxMatches > 0) {
-            flags.push(`-m ${options.maxMatches}`);
+        // Case sensitivity (INVERTED LOGIC: caseSensitive OFF by default = case insensitive search)
+        // Add -i flag when NOT case sensitive (i.e., when caseSensitive is false or undefined)
+        if (!options.caseSensitive) {
+            flags.push('-i');
         }
+
+        // Search mode (INVERTED LOGIC: smartSearchRegex OFF by default = normal/fixed string search)
+        // Add -F flag when NOT using regex (i.e., when smartSearchRegex is false or undefined)
+        if (!options.smartSearchRegex) {
+            flags.push('-F');
+        }
+
+        // Always enable recursive search
+        flags.push('-r');
+
+        // Always show line numbers (required for parsing)
+        flags.push('-n');
+
+        // Always show filename (required for parsing)
+        flags.push('-H');
+
+        // Hardcode max matches to 5000
+        flags.push('-m 5000');
+
+        // After context lines (optional, 0-50)
+        // NOTE: PFGREP only supports -A (after), not -B (before)
         if (options.afterContext && options.afterContext > 0) {
             flags.push(`-A ${options.afterContext}`);
         }
-
-        // Always show filename and line numbers for parsing
-        flags.push('-H'); // Always prepend filename
 
         const flagString = flags.length > 0 ? flags.join(' ') + ' ' : '';
 
@@ -124,12 +130,36 @@ export class FastPfuriousExecutor {
 
     /**
      * Build library paths from library list
+     * Supports formats like MYLIB, MYLIB/QRPGLESRC, MYLIB/QRPGLESRC/MYPGM with wildcards
      */
     private static buildLibraryPaths(libraries: string[]): string {
         const paths: string[] = [];
 
         for (const library of libraries) {
-            if (library === '*ALL' || library === 'ALL') {
+            // Check if this is a granular pattern (contains /)
+            if (library.includes('/')) {
+                const parts = library.split('/');
+
+                if (parts.length === 2) {
+                    // Library + File: MYLIB/QRPGLESRC or */QCLSRC
+                    const lib = parts[0];
+                    const file = parts[1];
+                    paths.push(`/QSYS.LIB/${lib}.LIB/${file}.FILE`);
+                } else if (parts.length === 3) {
+                    // Library + File + Member: MYLIB/QRPGLESRC/PROG* or MYLIB/*/*
+                    const lib = parts[0];
+                    const file = parts[1];
+                    const member = parts[2];
+
+                    if (member === '*') {
+                        // All members: MYLIB/QRPGLESRC/*
+                        paths.push(`/QSYS.LIB/${lib}.LIB/${file}.FILE/*.MBR`);
+                    } else {
+                        // Specific member or wildcard: MYLIB/QRPGLESRC/MYPGM or MYLIB/QRPGLESRC/PROG*
+                        paths.push(`/QSYS.LIB/${lib}.LIB/${file}.FILE/${member}.MBR`);
+                    }
+                }
+            } else if (library === '*ALL' || library === 'ALL') {
                 // Special case for all libraries - use generic search path
                 paths.push('/QSYS.LIB/*.LIB');
             } else if (library.includes(',')) {
@@ -139,7 +169,7 @@ export class FastPfuriousExecutor {
                     paths.push(`/QSYS.LIB/${lib}.LIB`);
                 });
             } else if (library.includes('*')) {
-                // Handle wildcards: "PROD*", "*TEST"
+                // Handle wildcards: "PROD*", "AGO*"
                 paths.push(`/QSYS.LIB/${library.toUpperCase()}.LIB`);
             } else {
                 // Regular library name
@@ -214,19 +244,30 @@ export class FastPfuriousExecutor {
      * Parse PFGREP output into structured results
      */
     private static parsePFGREPOutput(
-        output: string, 
-        options: FastPfuriousOptions, 
+        output: string,
+        options: FastPfuriousOptions,
         searchId: string
     ): SearchResults {
         const lines = output.split('\n').filter(line => line.trim());
         const hits: SearchHit[] = [];
         const hitMap = new Map<string, SearchHit>();
+        let totalMatchLines = 0;
 
         for (const line of lines) {
-            // PFGREP output format: /QSYS.LIB/LIBRARY.LIB/FILE.FILE/MEMBER.MBR:lineNumber:content
-            const match = line.match(/^([^:]+):(\d+):(.*)$/);
-            if (match) {
-                const [, path, lineNum, content] = match;
+            // Skip separator lines (--) between match groups
+            if (line === '--' || line.trim() === '--') {
+                continue;
+            }
+
+            // PFGREP output format for matches: /QSYS.LIB/LIBRARY.LIB/FILE.FILE/MEMBER.MBR:lineNumber:content
+            const matchLine = line.match(/^([^:]+):(\d+):(.*)$/);
+
+            // PFGREP output format for context lines: /QSYS.LIB/LIBRARY.LIB/FILE.FILE/MEMBER.MBR-lineNumber-content
+            const contextLine = line.match(/^([^:]+)-(\d+)-(.*)$/);
+
+            if (matchLine) {
+                const [, path, lineNum, content] = matchLine;
+                totalMatchLines++;
 
                 let hit = hitMap.get(path);
                 if (!hit) {
@@ -242,13 +283,43 @@ export class FastPfuriousExecutor {
 
                 hit.lines.push({
                     number: parseInt(lineNum),
-                    content: content.trim()
+                    content: content.trim(),
+                    isContext: false
+                });
+            } else if (contextLine) {
+                const [, path, lineNum, content] = contextLine;
+
+                let hit = hitMap.get(path);
+                if (!hit) {
+                    // Context line without a preceding match - shouldn't happen, but handle gracefully
+                    hit = {
+                        path,
+                        lines: [],
+                        readonly: false,
+                        label: this.extractMemberName(path)
+                    };
+                    hitMap.set(path, hit);
+                    hits.push(hit);
+                }
+
+                hit.lines.push({
+                    number: parseInt(lineNum),
+                    content: content.trim(),
+                    isContext: true
                 });
             }
         }
 
         // Sort results by path for consistent display
         hits.sort((a, b) => a.path.localeCompare(b.path));
+
+        // Check if we hit the 5000 match limit and show warning
+        if (totalMatchLines >= 5000) {
+            vscode.window.showWarningMessage(
+                '⚠️ Showing 5000 matches. There may be more results. Try refining your search.',
+                { modal: false }
+            );
+        }
 
         return {
             term: options.searchTerm,

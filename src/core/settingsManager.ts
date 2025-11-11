@@ -11,10 +11,52 @@ export class SettingsManager {
     /**
      * Initialize settings on first activation
      */
-    public initialize(): void {
+    public async initialize(): Promise<void> {
+        // Check for version migration
+        await this.checkVersionMigration();
+
         // Ensure default settings exist
         const settings = this.getGlobalSettings();
-        this.saveGlobalSettings(settings);
+        await this.saveGlobalSettings(settings);
+    }
+
+    /**
+     * Check if we need to migrate settings for v1.1.1
+     */
+    private async checkVersionMigration(): Promise<void> {
+        const currentVersion: string = this.context.globalState.get('fast-pfurious-search.version', '0.0.0') || '0.0.0';
+        const targetVersion = '1.1.1';
+
+        // If upgrading from any version before 1.1.1, clear old settings
+        if (currentVersion !== targetVersion) {
+            console.log(`Fast & PF-urious: Migrating from version ${currentVersion} to ${targetVersion}`);
+            await this.resetToDefaultsForV111();
+            await this.context.globalState.update('fast-pfurious-search.version', targetVersion);
+        }
+    }
+
+    /**
+     * Reset settings to defaults for v1.1.1 (includes beforeContext)
+     */
+    private async resetToDefaultsForV111(): Promise<void> {
+        const defaultSettings: FastPfuriousSettings = {
+            recentLibraries: [],
+            recentSearchTerms: [],
+            defaultOptions: {
+                caseSensitive: false,        // Default: case insensitive
+                smartSearchRegex: false,     // Default: normal search (not regex)
+                beforeContext: 2,            // Default: 2 lines before
+                afterContext: 2              // Default: 2 lines after
+            },
+            resultsSortOrder: 'name',
+            maxRecentSearches: 5,
+            windowSize: { width: 500, height: 400 },
+            windowPosition: { x: 100, y: 100 },
+            defaultLibraries: '',
+            lastUsedLibraries: ''
+        };
+
+        await this.saveGlobalSettings(defaultSettings);
     }
 
     /**
@@ -25,10 +67,10 @@ export class SettingsManager {
             recentLibraries: this.context.globalState.get('fast-pfurious-search.recentLibraries', []),
             recentSearchTerms: this.context.globalState.get('fast-pfurious-search.recentSearchTerms', []),
             defaultOptions: this.context.globalState.get('fast-pfurious-search.defaultOptions', {
-                caseInsensitive: true,  // Default to case insensitive (per requirements)
-                recursive: true,        // Default to recursive (per requirements)
-                wholeWords: false,
-                fixedString: false
+                caseSensitive: false,        // Default: case insensitive (checkbox unchecked)
+                smartSearchRegex: false,     // Default: normal search, not regex (checkbox unchecked)
+                beforeContext: 2,            // Default: 2 lines before each match
+                afterContext: 2              // Default: 2 lines after each match
             }),
             resultsSortOrder: this.context.globalState.get('fast-pfurious-search.resultsSortOrder', 'name'),
             maxRecentSearches: this.context.globalState.get('fast-pfurious-search.maxRecentSearches', 5),
@@ -216,10 +258,10 @@ export class SettingsManager {
             recentLibraries: [],
             recentSearchTerms: [],
             defaultOptions: {
-                caseInsensitive: true,
-                recursive: true,
-                wholeWords: false,
-                fixedString: false
+                caseSensitive: false,        // Default: case insensitive
+                smartSearchRegex: false,     // Default: normal search
+                beforeContext: 2,            // Default: 2 lines before
+                afterContext: 2              // Default: 2 lines after
             },
             resultsSortOrder: 'name',
             maxRecentSearches: 5,

@@ -2,7 +2,7 @@
     "name": "fast-pfurious-search",
     "displayName": "Fast & PF-urious search",
     "description": "Fueled by PFGREP - Blazing-fast IBM i source code search with an intuitive, modern interface",
-    "version": "1.0.1",
+    "version": "1.1.1",
     "license": "GPL-3.0-or-later",
     "publisher": "ravisankarpandian",
     "icon": "icon.png",

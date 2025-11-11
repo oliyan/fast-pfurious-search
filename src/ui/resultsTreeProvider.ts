@@ -231,16 +231,23 @@ export class FastPfuriousResultsTreeProvider implements vscode.TreeDataProvider<
         if (!hit) return [];
 
         const items: ResultTreeItem[] = hit.lines.map(line => {
-            // Highlight search term in content
-            const highlightedContent = this.highlightSearchTerm(line.content, this.results!.term);
-            
+            // Different handling for context lines vs match lines
+            const isContextLine = line.isContext === true;
+
+            // Add visual prefix for context lines to make them more distinct
+            const displayContent = isContextLine ? `  ${line.content}` : line.content;
+
             const item: ResultTreeItem = {
-                label: `Line ${line.number}`,
-                description: highlightedContent,
-                tooltip: `Line ${line.number}: ${line.content}`,
+                label: isContextLine ? `Line ${line.number} (context)` : `Line ${line.number}`,
+                description: displayContent,
+                tooltip: isContextLine
+                    ? `Context line ${line.number}: ${line.content}`
+                    : `Match at line ${line.number}: ${line.content}`,
                 collapsibleState: vscode.TreeItemCollapsibleState.None,
-                contextValue: 'line',
-                iconPath: new vscode.ThemeIcon('location'),
+                contextValue: isContextLine ? 'contextLine' : 'line',
+                iconPath: isContextLine
+                    ? new vscode.ThemeIcon('dash', new vscode.ThemeColor('disabledForeground'))  // Dash icon for context (more dimmed)
+                    : new vscode.ThemeIcon('arrow-right', new vscode.ThemeColor('charts.green')),  // Arrow icon for matches (highlighted)
                 lineNumber: line.number,
                 memberPath: memberPath,
                 command: {
@@ -249,7 +256,7 @@ export class FastPfuriousResultsTreeProvider implements vscode.TreeDataProvider<
                     arguments: [memberPath, line.number]
                 }
             };
-            
+
             return item;
         });
 
