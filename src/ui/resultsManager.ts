@@ -39,28 +39,64 @@ export class FastPfuriousResultsManager implements vscode.Disposable {
             // Clear all existing results - only keep one result window at a time
             this.clearAllResults();
 
-            // Show search starting status
-            vscode.window.setStatusBarMessage('🔍 Starting Fast & PF-urious search...');
+            // Show progress notification
+            await vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: 'Fast & PF-urious Search',
+                    cancellable: true
+                },
+                async (progress, token) => {
+                    // Handle cancellation
+                    token.onCancellationRequested(() => {
+                        FastPfuriousExecutor.cancelSearch(searchId);
+                    });
 
-            // Execute search
-            const results = await FastPfuriousExecutor.executeSearch(options, searchId);
+                    // Progress callback
+                    const progressCallback = (completed: number, total: number, intermediateResults: SearchResults) => {
+                        // Update progress message
+                        progress.report({
+                            message: `Searching... (${completed} of ${total} patterns completed)`
+                        });
 
-            // Store results
-            this.searchResults.set(searchId, results);
-            this.activeResultsId = searchId;
+                        // Update tree view with intermediate results
+                        this.treeProvider.setResults(intermediateResults);
+                        this.resultsChangedEmitter.fire();
+                    };
 
-            // Update tree view
-            this.treeProvider.setResults(results);
-            this.resultsChangedEmitter.fire();
+                    // Initial progress
+                    progress.report({ message: 'Starting search...' });
 
-            // Show success message
-            const totalHits = this.getTotalHits(results);
-            vscode.window.showInformationMessage(
-                `Found ${totalHits} hits in ${results.hits.length} members`
+                    // Execute search with progress callback
+                    const results = await FastPfuriousExecutor.executeSearch(options, searchId, progressCallback);
+
+                    // Store results
+                    this.searchResults.set(searchId, results);
+                    this.activeResultsId = searchId;
+
+                    // Final update to tree view
+                    this.treeProvider.setResults(results);
+                    this.resultsChangedEmitter.fire();
+
+                    // Show success message
+                    const totalHits = this.getTotalHits(results);
+                    progress.report({
+                        message: `Complete: Found ${totalHits} hits in ${results.hits.length} members`
+                    });
+
+                    // Show final status in status bar
+                    vscode.window.setStatusBarMessage(
+                        `✅ Fast & PF-urious found ${totalHits} hits in ${results.hits.length} members`,
+                        5000
+                    );
+                }
             );
 
         } catch (error: any) {
-            vscode.window.showErrorMessage(`Search failed: ${error.message}`);
+            // Only show error if it's not a cancellation
+            if (!error.message?.includes('cancelled')) {
+                vscode.window.showErrorMessage(`Search failed: ${error.message}`);
+            }
         }
     }
 

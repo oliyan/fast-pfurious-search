@@ -104,6 +104,14 @@
                     "minimum": 1,
                     "maximum": 50,
                     "scope": "application"
+                },
+                "fast-pfurious-search.maxParallelSearches": {
+                    "type": "number",
+                    "default": 10,
+                    "description": "Maximum number of parallel searches to execute concurrently",
+                    "minimum": 1,
+                    "maximum": 50,
+                    "scope": "application"
                 }
             }
         }

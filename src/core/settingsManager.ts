@@ -204,6 +204,14 @@ export class SettingsManager {
     }
 
     /**
+     * Get max parallel searches from VS Code configuration
+     */
+    public getMaxParallelSearches(): number {
+        const config = vscode.workspace.getConfiguration('fast-pfurious-search');
+        return config.get('maxParallelSearches', 10);
+    }
+
+    /**
      * Get last used libraries
      */
     public getLastUsedLibraries(): string {
