@@ -2,57 +2,221 @@ import * as vscode from 'vscode';
 import { FastPfuriousOptions, SearchResults, SearchHit, IBMiConnection } from '../types/interfaces';
 import { ConnectionManager } from './connectionManager';
 
+/**
+ * Interface for pattern-specific search errors
+ */
+interface PatternError {
+    pattern: string;
+    error: string;
+}
+
+/**
+ * Interface for tracking individual pattern search cancellation tokens
+ */
+interface PatternSearch {
+    pattern: string;
+    cancellationToken: vscode.CancellationTokenSource;
+}
+
+/**
+ * Type for progress callback function
+ */
+type ProgressCallback = (completed: number, total: number, results: SearchResults) => void;
+
 export class FastPfuriousExecutor {
-    private static activeSearches: Map<string, vscode.CancellationTokenSource> = new Map();
+    private static activeSearches: Map<string, PatternSearch[]> = new Map();
+
+    /**
+     * Split library patterns from comma-separated string
+     * Trims whitespace and filters empty patterns
+     */
+    private static splitPatterns(libraries: string[]): string[] {
+        const patterns: string[] = [];
+
+        for (const lib of libraries) {
+            // Split by comma, trim, and filter empty strings
+            const parts = lib.split(',')
+                .map(p => p.trim())
+                .filter(p => p.length > 0);
+            patterns.push(...parts);
+        }
+
+        return patterns;
+    }
 
     /**
      * Execute a PFGREP search with the given options
+     * Now supports parallel execution of multiple patterns
      */
     public static async executeSearch(
         options: FastPfuriousOptions,
-        searchId: string
+        searchId: string,
+        progressCallback?: ProgressCallback
     ): Promise<SearchResults> {
         const connection = ConnectionManager.getConnection();
         if (!connection) {
             throw new Error('No IBM i connection available');
         }
 
-        // Create cancellation token for this search
-        const cancellationToken = new vscode.CancellationTokenSource();
-        this.activeSearches.set(searchId, cancellationToken);
+        // Split library patterns by comma
+        const patterns = this.splitPatterns(options.libraries);
+
+        if (patterns.length === 0) {
+            throw new Error('No valid library patterns provided');
+        }
+
+        // Get max parallel searches from settings
+        const { SettingsManager } = await import('./settingsManager');
+        const context = (global as any).fastPfuriousContext;
+        const settingsManager = new SettingsManager(context);
+        const maxParallel = settingsManager.getMaxParallelSearches();
+
+        // Initialize tracking for this search
+        this.activeSearches.set(searchId, []);
+        const errors: PatternError[] = [];
+        const allHits: SearchHit[] = [];
+        let completedCount = 0;
+        let cancelled = false;
 
         try {
-            // Build PFGREP command
-            const command = this.buildPFGREPCommand(options);
+            // Process patterns in batches
+            for (let i = 0; i < patterns.length; i += maxParallel) {
+                // Check if search was cancelled
+                if (cancelled) {
+                    break;
+                }
 
-            // Show simple status (no progress bar per requirements)
-            vscode.window.setStatusBarMessage('🔍 Fast & PF-urious Search running...');
+                const batch = patterns.slice(i, Math.min(i + maxParallel, patterns.length));
 
-            // Execute command
-            const output = await this.executePFGREPCommand(
-                command, 
-                connection, 
-                cancellationToken.token
-            );
+                // Execute batch in parallel
+                const batchResults = await Promise.allSettled(
+                    batch.map(pattern => this.executePatternSearch(pattern, options, searchId, connection))
+                );
 
-            // Parse results
-            const results = this.parsePFGREPOutput(output, options, searchId);
+                // Process results from this batch
+                for (let j = 0; j < batchResults.length; j++) {
+                    const result = batchResults[j];
+                    const pattern = batch[j];
 
-            // Update status with results
-            const totalHits = this.getTotalHits(results);
-            vscode.window.setStatusBarMessage(
-                `✅ Fast & PF-urious found ${results.hits.length} files with ${totalHits} hits`,
-                3000
-            );
+                    if (result.status === 'fulfilled') {
+                        // Add hits from this pattern to overall results
+                        allHits.push(...result.value);
+                    } else {
+                        // Collect error for this pattern
+                        errors.push({
+                            pattern,
+                            error: result.reason?.message || 'Unknown error'
+                        });
+                    }
+
+                    // Update progress
+                    completedCount++;
+
+                    // Call progress callback if provided
+                    if (progressCallback) {
+                        const intermediateResults: SearchResults = {
+                            term: options.searchTerm,
+                            hits: allHits,
+                            searchOptions: options,
+                            timestamp: new Date(),
+                            searchId
+                        };
+                        progressCallback(completedCount, patterns.length, intermediateResults);
+                    }
+                }
+            }
+
+            // Show aggregated errors if any
+            if (errors.length > 0 && !cancelled) {
+                this.showAggregatedErrors(errors);
+            }
+
+            // Build final results
+            const results: SearchResults = {
+                term: options.searchTerm,
+                hits: allHits,
+                searchOptions: options,
+                timestamp: new Date(),
+                searchId
+            };
 
             return results;
 
         } catch (error: any) {
-            vscode.window.setStatusBarMessage(`❌ Fast & PF-urious failed: ${error.message}`, 5000);
             throw error;
         } finally {
+            // Clean up all pattern searches
+            const patternSearches = this.activeSearches.get(searchId);
+            if (patternSearches) {
+                patternSearches.forEach(ps => ps.cancellationToken.dispose());
+            }
             this.activeSearches.delete(searchId);
-            cancellationToken.dispose();
+        }
+    }
+
+    /**
+     * Execute search for a single pattern
+     */
+    private static async executePatternSearch(
+        pattern: string,
+        options: FastPfuriousOptions,
+        searchId: string,
+        connection: IBMiConnection
+    ): Promise<SearchHit[]> {
+        // Create cancellation token for this pattern
+        const cancellationToken = new vscode.CancellationTokenSource();
+
+        // Track this pattern search
+        const patternSearches = this.activeSearches.get(searchId) || [];
+        patternSearches.push({ pattern, cancellationToken });
+        this.activeSearches.set(searchId, patternSearches);
+
+        try {
+            // Build PFGREP command for this single pattern
+            const command = this.buildPFGREPCommandForPattern(pattern, options);
+
+            // Execute command
+            const output = await this.executePFGREPCommand(
+                command,
+                connection,
+                cancellationToken.token
+            );
+
+            // Parse output into hits
+            const hits = this.parsePFGREPOutputToHits(output);
+
+            return hits;
+
+        } catch (error: any) {
+            // Re-throw with pattern context
+            const enhancedError = new Error(`Pattern "${pattern}": ${error.message}`);
+            throw enhancedError;
+        }
+    }
+
+    /**
+     * Show aggregated error notification
+     */
+    private static showAggregatedErrors(errors: PatternError[]): void {
+        if (errors.length === 1) {
+            vscode.window.showErrorMessage(
+                `Search failed for pattern "${errors[0].pattern}": ${errors[0].error}`
+            );
+        } else {
+            const errorSummary = errors.map(e => `"${e.pattern}"`).join(', ');
+            const detailedErrors = errors.map(e => `  • ${e.pattern}: ${e.error}`).join('\n');
+
+            vscode.window.showErrorMessage(
+                `${errors.length} pattern(s) failed: ${errorSummary}`,
+                'Show Details'
+            ).then(selection => {
+                if (selection === 'Show Details') {
+                    vscode.window.showInformationMessage(
+                        `Failed patterns:\n${detailedErrors}`,
+                        { modal: true }
+                    );
+                }
+            });
         }
     }
 
@@ -60,9 +224,13 @@ export class FastPfuriousExecutor {
      * Cancel an active search
      */
     public static cancelSearch(searchId: string): void {
-        const cancellationToken = this.activeSearches.get(searchId);
-        if (cancellationToken) {
-            cancellationToken.cancel();
+        const patternSearches = this.activeSearches.get(searchId);
+        if (patternSearches) {
+            // Cancel all pattern searches for this search ID
+            patternSearches.forEach(ps => {
+                ps.cancellationToken.cancel();
+                ps.cancellationToken.dispose();
+            });
             this.activeSearches.delete(searchId);
         }
     }
@@ -71,16 +239,19 @@ export class FastPfuriousExecutor {
      * Cancel all active searches
      */
     public static cancelAllSearches(): void {
-        for (const [searchId, token] of this.activeSearches) {
-            token.cancel();
+        for (const [searchId, patternSearches] of this.activeSearches) {
+            patternSearches.forEach(ps => {
+                ps.cancellationToken.cancel();
+                ps.cancellationToken.dispose();
+            });
         }
         this.activeSearches.clear();
     }
 
     /**
-     * Build PFGREP command from options
+     * Build PFGREP command for a single pattern
      */
-    private static buildPFGREPCommand(options: FastPfuriousOptions): string {
+    private static buildPFGREPCommandForPattern(pattern: string, options: FastPfuriousOptions): string {
         const flags: string[] = [];
 
         // Case sensitivity (INVERTED LOGIC: caseSensitive OFF by default = case insensitive search)
@@ -118,66 +289,57 @@ export class FastPfuriousExecutor {
         // Escape search term for shell safety
         const escapedTerm = this.escapeShellArgument(options.searchTerm);
 
-        // Build library paths - support wildcards and comma-separated lists
-        const libraryPaths = this.buildLibraryPaths(options.libraries);
+        // Build library path for single pattern
+        const libraryPath = this.buildLibraryPath(pattern);
 
         // Get the full PFGREP path (discovered during validation)
         const pfgrepPath = ConnectionManager.getPFGREPPath();
 
         // Return complete command using full path
-        return `${pfgrepPath} ${flagString}${escapedTerm} ${libraryPaths}`;
+        return `${pfgrepPath} ${flagString}${escapedTerm} ${libraryPath}`;
     }
 
     /**
-     * Build library paths from library list
+     * Build library path for a single pattern
      * Supports formats like MYLIB, MYLIB/QRPGLESRC, MYLIB/QRPGLESRC/MYPGM with wildcards
      */
-    private static buildLibraryPaths(libraries: string[]): string {
-        const paths: string[] = [];
+    private static buildLibraryPath(pattern: string): string {
+        // Check if this is a granular pattern (contains /)
+        if (pattern.includes('/')) {
+            const parts = pattern.split('/');
 
-        for (const library of libraries) {
-            // Check if this is a granular pattern (contains /)
-            if (library.includes('/')) {
-                const parts = library.split('/');
+            if (parts.length === 2) {
+                // Library + File: MYLIB/QRPGLESRC or */QCLSRC
+                const lib = parts[0];
+                const file = parts[1];
+                return `/QSYS.LIB/${lib}.LIB/${file}.FILE`;
+            } else if (parts.length === 3) {
+                // Library + File + Member: MYLIB/QRPGLESRC/PROG* or MYLIB/*/*
+                const lib = parts[0];
+                const file = parts[1];
+                const member = parts[2];
 
-                if (parts.length === 2) {
-                    // Library + File: MYLIB/QRPGLESRC or */QCLSRC
-                    const lib = parts[0];
-                    const file = parts[1];
-                    paths.push(`/QSYS.LIB/${lib}.LIB/${file}.FILE`);
-                } else if (parts.length === 3) {
-                    // Library + File + Member: MYLIB/QRPGLESRC/PROG* or MYLIB/*/*
-                    const lib = parts[0];
-                    const file = parts[1];
-                    const member = parts[2];
-
-                    if (member === '*') {
-                        // All members: MYLIB/QRPGLESRC/*
-                        paths.push(`/QSYS.LIB/${lib}.LIB/${file}.FILE/*.MBR`);
-                    } else {
-                        // Specific member or wildcard: MYLIB/QRPGLESRC/MYPGM or MYLIB/QRPGLESRC/PROG*
-                        paths.push(`/QSYS.LIB/${lib}.LIB/${file}.FILE/${member}.MBR`);
-                    }
+                if (member === '*') {
+                    // All members: MYLIB/QRPGLESRC/*
+                    return `/QSYS.LIB/${lib}.LIB/${file}.FILE/*.MBR`;
+                } else {
+                    // Specific member or wildcard: MYLIB/QRPGLESRC/MYPGM or MYLIB/QRPGLESRC/PROG*
+                    return `/QSYS.LIB/${lib}.LIB/${file}.FILE/${member}.MBR`;
                 }
-            } else if (library === '*ALL' || library === 'ALL') {
-                // Special case for all libraries - use generic search path
-                paths.push('/QSYS.LIB/*.LIB');
-            } else if (library.includes(',')) {
-                // Handle comma-separated: "LIB1,LIB2,LIB3"
-                const libs = library.split(',').map(l => l.trim().toUpperCase());
-                libs.forEach(lib => {
-                    paths.push(`/QSYS.LIB/${lib}.LIB`);
-                });
-            } else if (library.includes('*')) {
-                // Handle wildcards: "PROD*", "AGO*"
-                paths.push(`/QSYS.LIB/${library.toUpperCase()}.LIB`);
-            } else {
-                // Regular library name
-                paths.push(`/QSYS.LIB/${library.toUpperCase()}.LIB`);
             }
+        } else if (pattern === '*ALL' || pattern === 'ALL') {
+            // Special case for all libraries - use generic search path
+            return '/QSYS.LIB/*.LIB';
+        } else if (pattern.includes('*')) {
+            // Handle wildcards: "PROD*", "AGO*"
+            return `/QSYS.LIB/${pattern.toUpperCase()}.LIB`;
+        } else {
+            // Regular library name
+            return `/QSYS.LIB/${pattern.toUpperCase()}.LIB`;
         }
 
-        return paths.join(' ');
+        // Fallback for unexpected formats
+        return `/QSYS.LIB/${pattern.toUpperCase()}.LIB`;
     }
 
     /**
@@ -241,17 +403,12 @@ export class FastPfuriousExecutor {
     }
 
     /**
-     * Parse PFGREP output into structured results
+     * Parse PFGREP output into array of SearchHit objects
      */
-    private static parsePFGREPOutput(
-        output: string,
-        options: FastPfuriousOptions,
-        searchId: string
-    ): SearchResults {
+    private static parsePFGREPOutputToHits(output: string): SearchHit[] {
         const lines = output.split('\n').filter(line => line.trim());
         const hits: SearchHit[] = [];
         const hitMap = new Map<string, SearchHit>();
-        let totalMatchLines = 0;
 
         for (const line of lines) {
             // Skip separator lines (--) between match groups
@@ -267,7 +424,6 @@ export class FastPfuriousExecutor {
 
             if (matchLine) {
                 const [, path, lineNum, content] = matchLine;
-                totalMatchLines++;
 
                 let hit = hitMap.get(path);
                 if (!hit) {
@@ -310,24 +466,7 @@ export class FastPfuriousExecutor {
             }
         }
 
-        // Sort results by path for consistent display
-        hits.sort((a, b) => a.path.localeCompare(b.path));
-
-        // Check if we hit the 5000 match limit and show warning
-        if (totalMatchLines >= 5000) {
-            vscode.window.showWarningMessage(
-                '⚠️ Showing 5000 matches. There may be more results. Try refining your search.',
-                { modal: false }
-            );
-        }
-
-        return {
-            term: options.searchTerm,
-            hits,
-            searchOptions: options,
-            timestamp: new Date(),
-            searchId
-        };
+        return hits;
     }
 
     /**

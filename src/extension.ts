@@ -17,6 +17,9 @@ export async function activate(context: vscode.ExtensionContext) {
     settingsManager = new SettingsManager(context);
     searchModal = new FastPfuriousSearchModal(context, resultsManager);
 
+    // Make context globally accessible for FastPfuriousExecutor
+    (global as any).fastPfuriousContext = context;
+
     // Initialize settings and handle version migration
     await settingsManager.initialize();
 

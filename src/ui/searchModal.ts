@@ -81,7 +81,7 @@ export class FastPfuriousSearchModal {
                     caseSensitive: defaultOptions.caseSensitive ?? false,  // Default: case insensitive
                     smartSearchRegex: defaultOptions.smartSearchRegex ?? false,  // Default: normal search
                     beforeContext: defaultOptions.beforeContext ?? 2,  // Default: 2 lines before
-                    afterContext: defaultOptions.afterContext ?? 2  // Default: 2 lines after
+                    afterContext: defaultOptions.afterContext ?? 0  // Default: unchecked
                 }
             }
         });
@@ -503,7 +503,7 @@ export class FastPfuriousSearchModal {
             <!-- Basic Search Input -->
             <div class="form-group" id="basicSearchGroup">
                 <label for="basicSearchTerm">Search Term:</label>
-                <input type="text" id="basicSearchTerm" name="searchTerm" placeholder="Enter text to search for..." required>
+                <input type="text" id="basicSearchTerm" name="searchTerm" placeholder="Enter text to search for...">
                 <div class="quote-warning" id="basicQuoteWarning">
                     ⚠️ Your search contains quotes. The quote characters will be included in the search.
                 </div>
