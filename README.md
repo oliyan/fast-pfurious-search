@@ -40,7 +40,7 @@ Connect to your IBM i terminal (SSH or QP2TERM) and run:
 Press `Ctrl+Alt+F` anywhere in VS Code
 
 
-![Search Dialog](screenshots/search-dialog.png)
+![Search Dialog](screenshots/explanation.png)
 *The search dialog showing pattern input, library selection, and options*
 
 ---
@@ -49,7 +49,7 @@ Press `Ctrl+Alt+F` anywhere in VS Code
 
 Results appear in the **File Explorer** (left sidebar) under a new section called "Fast &PF-URIOUS results":
 
-![Results in Explorer](screenshots/results-location.png)
+![Results in Explorer](screenshots/searchresults.png)
 *Results appear in the Explorer sidebar with library → file → member hierarchy*
 
 **Click any line** → Opens that member with your cursor on that exact line! 🎯
@@ -75,7 +75,7 @@ Each result shows:
 | **Clear results** | Click the **×** button to remove results |
 | **Expand/collapse** | Click arrows next to library/file names to organize view |
 
-![Export and Clear Buttons](screenshots/results-buttons.png)
+![Export and Clear Buttons](screenshots/export.png)
 *The export (→) and clear (×) buttons at the top of the results panel*
 * When you click the export button (→), a new editor window is opened with the search results in it.
 * You can save this file anywhere for documentation or sharing with your team.
@@ -120,7 +120,7 @@ You can use wildcards and combine multiple patterns:
 | `PROD*` | All libraries starting with PROD |
 | `MYLIB,YOURLIB` | Two specific libraries (comma-separated) |
 | `MYLIB/QRPGLESRC/*` | Only the QRPGLESRC source file from MYLIB |
-| `PROD*,*TEST,MYLIB` | Combination of patterns |
+
 
 ### Context Lines
 
@@ -325,7 +325,6 @@ If this works, your original pattern or library selection might be the issue.
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl+Alt+F` | Open search dialog (works anywhere in VS Code) |
-| `Ctrl+Shift+P` → "PFGREP" | Open via command palette |
 | `Enter` | Execute search (when dialog is open) |
 | `Escape` | Close dialog / Cancel search |
 
@@ -341,7 +340,7 @@ If this works, your original pattern or library selection might be the issue.
 
 ### Found a Bug or Have a Feature Idea?
 
-- **File an issue**: [GitHub Issues](https://github.com/your-repo/issues) *(Replace with your actual GitHub link)*
+- **File an issue**: [GitHub Issues](https://github.com/oliyan/fast-pfurious-search/issues) 
 - **Contribute code**: Pull requests are welcome!
 - **Share feedback**: Help make this extension better for the entire IBM i community
 
@@ -377,7 +376,7 @@ This project is licensed under the GPL v3 License - see the [LICENSE](LICENSE) f
 | What | How |
 |------|-----|
 | **Open search** | `Ctrl+Alt+F` |
-| **Results location** | File Explorer (left sidebar) → "PFGREP Results" section |
+| **Results location** | File Explorer (left sidebar) → "FAST & PF-URIOUS Results" section |
 | **Jump to code** | Click any result line |
 | **Export results** | Click **→** button in results panel |
 | **Clear results** | Click **×** button |
