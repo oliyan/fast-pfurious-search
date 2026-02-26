@@ -19,7 +19,7 @@ interface PatternSearch {
 }
 
 /**
- * Type for progress callback function
+ * Type for progress callback function added a comment
  */
 type ProgressCallback = (completed: number, total: number, results: SearchResults) => void;
 
