@@ -151,6 +151,32 @@ export interface MemberPathParts {
     fullPath: string;
 }
 
+// Search & Replace interfaces
+export interface OccurrenceSelection {
+    memberPath: string;
+    lineNumber: number;
+}
+
+export interface ReplaceRequest {
+    searchTerm: string;
+    replaceTerm: string;
+    caseSensitive: boolean;
+    selectedOccurrences: OccurrenceSelection[];
+}
+
+export interface OccurrenceResult {
+    memberPath: string;
+    lineNumber: number;
+    status: 'replaced' | 'replaced_with_truncation_risk' | 'not_found' | 'authority_error' | 'failed';
+    error?: string;
+}
+
+export interface ReplaceResult {
+    memberPath: string;
+    lineResults: OccurrenceResult[];
+    error?: string;
+}
+
 // Webview message interfaces
 export interface WebviewMessage {
     command: string;
