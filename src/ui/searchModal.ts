@@ -1,18 +1,25 @@
 import * as vscode from 'vscode';
-import { FastPfuriousOptions } from '../types/interfaces';
+import { FastPfuriousOptions, SearchHit } from '../types/interfaces';
 import { SettingsManager } from '../core/settingsManager';
 import { FastPfuriousResultsManager } from './resultsManager';
+import { ReplaceWindow } from './replaceWindow';
 
 export class FastPfuriousSearchModal {
     private context: vscode.ExtensionContext;
     private settingsManager: SettingsManager;
     private resultsManager: FastPfuriousResultsManager;
+    private replaceWindow: ReplaceWindow;
     private panel: vscode.WebviewPanel | undefined;
 
-    constructor(context: vscode.ExtensionContext, resultsManager: FastPfuriousResultsManager) {
+    constructor(
+        context: vscode.ExtensionContext,
+        resultsManager: FastPfuriousResultsManager,
+        replaceWindow: ReplaceWindow
+    ) {
         this.context = context;
         this.settingsManager = new SettingsManager(context);
         this.resultsManager = resultsManager;
+        this.replaceWindow = replaceWindow;
     }
 
     /**
@@ -48,6 +55,9 @@ export class FastPfuriousSearchModal {
                 switch (message.command) {
                     case 'search':
                         await this.executeSearch(message.options);
+                        break;
+                    case 'searchAndReplace':
+                        await this.executeSearchAndReplace(message.options);
                         break;
                     case 'getDefaults':
                         await this.sendDefaults();
@@ -134,6 +144,60 @@ export class FastPfuriousSearchModal {
 
         } catch (error: any) {
             this.showWebviewError(`Search failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Execute a search-and-replace: runs PFGREP then hands results to the replace window
+     */
+    private async executeSearchAndReplace(formData: any): Promise<void> {
+        try {
+            const searchLocation = formData.searchLocation || formData.libraries;
+            const libraries = this.parseSearchLocation(searchLocation);
+
+            if (libraries.length === 0) {
+                this.showWebviewError('Please enter at least one search location');
+                return;
+            }
+
+            if (!formData.searchTerm || formData.searchTerm.trim().length === 0) {
+                this.showWebviewError('Please enter a search term');
+                return;
+            }
+
+            const searchTerm = formData.searchTerm.trim();
+            const replaceTerm: string = formData.replaceTerm ?? '';
+            const caseSensitive: boolean = formData.caseSensitive === true;
+
+            const options: FastPfuriousOptions = {
+                searchTerm,
+                libraries,
+                caseSensitive,
+                smartSearchRegex: false, // Replace only available in Basic (fixed-string) mode
+                beforeContext: undefined,
+                afterContext: undefined
+            };
+
+            await this.settingsManager.updateRecentLibraries(searchLocation);
+            await this.settingsManager.updateSearchHistory(formData.searchTerm);
+
+            // Open the replace window immediately so the user sees "Searching…"
+            this.replaceWindow.show(searchTerm, replaceTerm, caseSensitive, searchLocation);
+
+            this.showWebviewStatus('Searching…', 'info');
+
+            // Reuse existing search infrastructure
+            await this.resultsManager.executeSearch(options);
+
+            // Retrieve the hits from the most recent results
+            const results = this.resultsManager.getActiveResults();
+            const hits: SearchHit[] = results ? results.hits : [];
+
+            this.replaceWindow.populateResults(hits);
+            this.showWebviewStatus('Search completed!', 'success');
+
+        } catch (error: any) {
+            this.showWebviewError(`Search & Replace failed: ${error.message}`);
         }
     }
 
@@ -503,9 +567,21 @@ export class FastPfuriousSearchModal {
             <!-- Basic Search Input -->
             <div class="form-group" id="basicSearchGroup">
                 <label for="basicSearchTerm">Search Term:</label>
-                <input type="text" id="basicSearchTerm" name="searchTerm" placeholder="Enter text to search for...">
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <input type="text" id="basicSearchTerm" name="searchTerm" placeholder="Enter text to search for..." style="flex:1;">
+                    <button type="button" id="replaceToggleBtn" title="Toggle replace field" style="padding:6px 10px;background:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground);border:1px solid var(--vscode-input-border);border-radius:3px;cursor:pointer;font-size:14px;flex-shrink:0;">⇄</button>
+                </div>
                 <div class="quote-warning" id="basicQuoteWarning">
                     ⚠️ Your search contains quotes. The quote characters will be included in the search.
+                </div>
+                <div id="replaceFieldGroup" style="display:none;margin-top:8px;">
+                    <input type="text" id="replaceTermInput" placeholder="Replace with… (leave empty to delete)" style="width:100%;box-sizing:border-box;">
+                    <div id="deleteAckGroup" style="display:none;margin-top:6px;">
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="deleteAckCheckbox">
+                            <label for="deleteAckCheckbox" style="display:inline;font-weight:normal;color:var(--vscode-inputValidation-warningForeground);">⚠ I understand that an empty replace term will delete all matched occurrences.</label>
+                        </div>
+                    </div>
                 </div>
                 <div class="mode-tip" id="basicModeTip">
                     💡 Tip: Multi-word searches are treated as phrases in Basic Search mode
@@ -551,7 +627,10 @@ export class FastPfuriousSearchModal {
                 </div>
             </div>
 
-            <button type="submit" class="search-button" id="searchButton">Search</button>
+            <div style="display:flex;gap:8px;margin-top:20px;">
+                <button type="submit" class="search-button" id="searchButton" style="flex:1;margin-top:0;">Search</button>
+                <button type="button" class="search-button" id="searchReplaceButton" style="flex:1;margin-top:0;display:none;background-color:var(--vscode-button-secondaryBackground);color:var(--vscode-button-secondaryForeground);">Search &amp; Replace</button>
+            </div>
 
             <div id="statusMessage" class="status-message" style="display: none;"></div>
         </form>
@@ -595,6 +674,68 @@ export class FastPfuriousSearchModal {
             // Show/hide appropriate search groups
             document.getElementById('basicSearchGroup').style.display = 'none';
             document.getElementById('regexSearchGroup').style.display = 'block';
+        });
+
+        // Replace toggle button logic (Basic tab only)
+        document.getElementById('replaceToggleBtn').addEventListener('click', function() {
+            const group = document.getElementById('replaceFieldGroup');
+            const replaceBtn = document.getElementById('searchReplaceButton');
+            const replaceInput = document.getElementById('replaceTermInput');
+            const isVisible = group.style.display !== 'none';
+            if (isVisible) {
+                group.style.display = 'none';
+                replaceBtn.style.display = 'none';
+                replaceInput.value = '';
+                document.getElementById('deleteAckGroup').style.display = 'none';
+            } else {
+                group.style.display = 'block';
+                replaceBtn.style.display = 'block';
+                updateDeleteAck();
+            }
+            updateSearchReplaceButton();
+        });
+
+        function updateDeleteAck() {
+            const replaceInput = document.getElementById('replaceTermInput');
+            const ackGroup = document.getElementById('deleteAckGroup');
+            const isVisible = document.getElementById('replaceFieldGroup').style.display !== 'none';
+            if (isVisible && replaceInput.value === '') {
+                ackGroup.style.display = 'block';
+            } else {
+                ackGroup.style.display = 'none';
+            }
+            updateSearchReplaceButton();
+        }
+
+        function updateSearchReplaceButton() {
+            const replaceInput = document.getElementById('replaceTermInput');
+            const ackCheckbox = document.getElementById('deleteAckCheckbox');
+            const replaceBtn = document.getElementById('searchReplaceButton');
+            const isVisible = document.getElementById('replaceFieldGroup').style.display !== 'none';
+            if (!isVisible) { return; }
+            const isEmpty = replaceInput.value === '';
+            // Disabled when: replace term empty and ack not checked
+            replaceBtn.disabled = isEmpty && !ackCheckbox.checked;
+        }
+
+        document.getElementById('replaceTermInput').addEventListener('input', updateDeleteAck);
+        document.getElementById('deleteAckCheckbox').addEventListener('change', updateSearchReplaceButton);
+
+        document.getElementById('searchReplaceButton').addEventListener('click', function() {
+            const searchTerm = document.getElementById('basicSearchTerm').value.trim();
+            const searchLocation = document.getElementById('searchLocation').value;
+            const replaceTerm = document.getElementById('replaceTermInput').value;
+
+            vscode.postMessage({
+                command: 'searchAndReplace',
+                options: {
+                    searchTerm: searchTerm,
+                    searchLocation: searchLocation,
+                    replaceTerm: replaceTerm,
+                    caseSensitive: document.getElementById('caseSensitive').checked,
+                    searchMode: 'basic'
+                }
+            });
         });
 
         // Quote detection and warning for Basic Search

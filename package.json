@@ -55,6 +55,11 @@
                 "title": "Cancel Search",
                 "category": "Fast & PF-urious",
                 "icon": "$(stop)"
+            },
+            {
+                "command": "fast-pfurious-search.searchReplace",
+                "title": "Fast & PF-urious: Search & Replace",
+                "category": "Fast & PF-urious"
             }
         ],
         "keybindings": [

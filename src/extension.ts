@@ -4,10 +4,14 @@ import { FastPfuriousResultsManager } from './ui/resultsManager';
 import { FastPfuriousResultsTreeProvider } from './ui/resultsTreeProvider';
 import { ConnectionManager } from './core/connectionManager';
 import { SettingsManager } from './core/settingsManager';
+import { ReplaceWindow } from './ui/replaceWindow';
+import { MemberReplacer } from './core/memberReplacer';
+import { ReplaceRequest, ReplaceResult } from './types/interfaces';
 
 let resultsManager: FastPfuriousResultsManager;
 let settingsManager: SettingsManager;
 let searchModal: FastPfuriousSearchModal;
+let replaceWindow: ReplaceWindow;
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log('Fast & PF-urious Search is now active!');
@@ -15,7 +19,42 @@ export async function activate(context: vscode.ExtensionContext) {
     // Initialize managers
     resultsManager = new FastPfuriousResultsManager(context);
     settingsManager = new SettingsManager(context);
-    searchModal = new FastPfuriousSearchModal(context, resultsManager);
+
+    // Replace callback: called when the user clicks Confirm Replace in the replace window
+    const replaceCallback = async (request: ReplaceRequest): Promise<void> => {
+        const connection = ConnectionManager.getConnection();
+        if (!connection) {
+            vscode.window.showErrorMessage('No IBM i connection available');
+            return;
+        }
+
+        const summary = { replaced: 0, notFound: 0, failed: 0 };
+
+        try {
+            await MemberReplacer.executeReplace(request, connection, (result: ReplaceResult) => {
+                replaceWindow.streamReplaceResult(result);
+                for (const lr of result.lineResults) {
+                    if (lr.status === 'replaced' || lr.status === 'replaced_with_truncation_risk') {
+                        summary.replaced++;
+                    } else if (lr.status === 'not_found') {
+                        summary.notFound++;
+                    } else {
+                        summary.failed++;
+                    }
+                }
+                if (result.error && result.lineResults.length === 0) {
+                    summary.failed++;
+                }
+            });
+        } catch (error: any) {
+            vscode.window.showErrorMessage(`Replace failed: ${error.message}`);
+        }
+
+        replaceWindow.replaceComplete(summary);
+    };
+
+    replaceWindow = new ReplaceWindow(context, replaceCallback);
+    searchModal = new FastPfuriousSearchModal(context, resultsManager, replaceWindow);
 
     // Make context globally accessible for FastPfuriousExecutor
     (global as any).fastPfuriousContext = context;
@@ -25,6 +64,19 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Register tree provider commands
     FastPfuriousResultsTreeProvider.registerCommands(context);
+
+    // Register search & replace command (triggered from search modal UI)
+    const searchReplaceCommand = vscode.commands.registerCommand(
+        'fast-pfurious-search.searchReplace',
+        async () => {
+            try {
+                await ConnectionManager.validateEnvironment();
+                await searchModal.show();
+            } catch (error: any) {
+                vscode.window.showErrorMessage(error.message);
+            }
+        }
+    );
 
     // Register main search command
     const openSearchCommand = vscode.commands.registerCommand(
@@ -126,6 +178,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Subscribe to disposal
     context.subscriptions.push(
+        searchReplaceCommand,
         openSearchCommand,
         exportResultsCommand,
         clearResultsCommand,
