@@ -1,5 +1,4 @@
 import { ReplaceRequest, ReplaceResult, OccurrenceResult, IBMiConnection } from '../types/interfaces';
-import { ConnectionManager } from './connectionManager';
 
 const BATCH_SIZE = 5;
 
@@ -28,7 +27,6 @@ export class MemberReplacer {
 
         const members = Array.from(memberLineMap.entries());
 
-        // Process members in parallel batches of 5
         for (let i = 0; i < members.length; i += BATCH_SIZE) {
             const batch = members.slice(i, i + BATCH_SIZE);
             await Promise.allSettled(
@@ -76,18 +74,23 @@ export class MemberReplacer {
                 };
             }
 
-            // Detect the original line ending so we can preserve it on write-back.
-            // IBM i SRCPF records use \r (CR) only when read via PASE cat.
-            const lineEnding = content.includes('\r\n') ? '\r\n' : content.includes('\r') ? '\r' : '\n';
-            console.log(`[MemberReplacer] detected line ending: ${JSON.stringify(lineEnding)}`);
-            const lines = content.split(/\r\n|\r|\n/);
+            // Log the first special (non-printable) character code to diagnose line endings
+            for (let i = 0; i < Math.min(content.length, 1000); i++) {
+                const code = content.charCodeAt(i);
+                if (code < 32 || (code >= 127 && code <= 160)) {
+                    console.log(`[MemberReplacer] first non-printable char at idx ${i}: 0x${code.toString(16)}`);
+                    break;
+                }
+            }
+
+            const lines = content.split('\n');
             console.log(`[MemberReplacer] total lines in member: ${lines.length}`);
 
             const lineResults: OccurrenceResult[] = [];
             let anyPatched = false;
 
             for (const lineNumber of selectedLines) {
-                const idx = lineNumber - 1; // 1-based to 0-based
+                const idx = lineNumber - 1;
                 if (idx < 0 || idx >= lines.length) {
                     console.log(`[MemberReplacer] line ${lineNumber} out of range (member has ${lines.length} lines)`);
                     lineResults.push({ memberPath, lineNumber, status: 'not_found' });
@@ -108,7 +111,6 @@ export class MemberReplacer {
                     continue;
                 }
 
-                // Replace ALL occurrences on this line (case-aware)
                 const replaced = request.caseSensitive
                     ? original.split(request.searchTerm).join(request.replaceTerm)
                     : MemberReplacer.replaceAllCaseInsensitive(original, request.searchTerm, request.replaceTerm);
@@ -128,7 +130,7 @@ export class MemberReplacer {
             console.log(`[MemberReplacer] anyPatched: ${anyPatched}`);
 
             if (anyPatched) {
-                const newContent = lines.join(lineEnding);
+                const newContent = lines.join('\n');
                 const writeOk = await MemberReplacer.writeMember(memberPath, newContent, connection);
                 console.log(`[MemberReplacer] write result: ${writeOk}`);
 
@@ -174,78 +176,98 @@ export class MemberReplacer {
     }
 
     /**
-     * Read member content. Tries the Code for IBM i content API first (handles CCSID),
-     * falls back to PASE cat command if unavailable.
+     * Read member content.
+     * Uses Code for IBM i content API if available, otherwise QSH cat (which handles
+     * EBCDIC→UTF-8 conversion properly, unlike PASE cat which returns raw fixed-width
+     * records without newline delimiters).
      */
     private static async readMember(memberPath: string, connection: IBMiConnection): Promise<string | null> {
-        const content = connection.getContent();
+        const contentApi = connection.getContent();
 
-        // Try Code for IBM i content API (handles CCSID conversion properly)
-        if (content && typeof content.downloadStreamFile === 'function') {
+        if (contentApi && typeof contentApi.downloadStreamFile === 'function') {
             try {
-                console.log(`[MemberReplacer] reading via downloadStreamFile: ${memberPath}`);
-                const data: string = await content.downloadStreamFile(memberPath);
-                console.log(`[MemberReplacer] downloadStreamFile returned ${data?.length ?? 'null'} chars`);
-                return data ?? null;
+                console.log(`[MemberReplacer] reading via downloadStreamFile`);
+                const data: string = await contentApi.downloadStreamFile(memberPath);
+                if (data !== null && data !== undefined) {
+                    console.log(`[MemberReplacer] downloadStreamFile returned ${data.length} chars`);
+                    return data;
+                }
             } catch (e: any) {
-                console.log(`[MemberReplacer] downloadStreamFile failed: ${e?.message}, falling back to cat`);
+                console.log(`[MemberReplacer] downloadStreamFile failed: ${e?.message}`);
             }
         }
 
-        // Fallback: PASE cat
-        console.log(`[MemberReplacer] reading via cat: ${memberPath}`);
-        const readResult = await connection.sendCommand({
+        // QSH environment handles EBCDIC→UTF-8 with proper \n line endings,
+        // unlike PASE cat which returns raw records with no separator.
+        console.log(`[MemberReplacer] reading via QSH cat`);
+        const result = await connection.sendCommand({
             command: `cat "${memberPath}"`,
-            environment: 'pase'
+            environment: 'qsh'
         });
-        console.log(`[MemberReplacer] cat exit code: ${readResult.code}, stdout length: ${readResult.stdout?.length ?? 0}`);
-        if (readResult.stderr) {
-            console.log(`[MemberReplacer] cat stderr: ${readResult.stderr}`);
+        console.log(`[MemberReplacer] QSH cat exit code: ${result.code}, stdout length: ${result.stdout?.length ?? 0}`);
+        if (result.stderr) {
+            console.log(`[MemberReplacer] QSH cat stderr: ${result.stderr}`);
         }
 
-        if (readResult.code !== 0) {
+        if (result.code !== 0) {
             return null;
         }
-        return readResult.stdout;
+        return result.stdout;
     }
 
     /**
-     * Write member content. Tries the Code for IBM i content API first,
-     * falls back to base64/printf via PASE.
+     * Write member content.
+     * Writes to a temp UTF-8 stream file, then uses CPYFRMSTMF to copy it back
+     * to the SRCPF member with proper CCSID conversion (UTF-8 1208 → member CCSID).
      */
     private static async writeMember(memberPath: string, content: string, connection: IBMiConnection): Promise<boolean> {
         const contentApi = connection.getContent();
 
-        // Try Code for IBM i content API
         if (contentApi && typeof contentApi.writeStreamFile === 'function') {
             try {
-                console.log(`[MemberReplacer] writing via writeStreamFile: ${memberPath}`);
+                console.log(`[MemberReplacer] writing via writeStreamFile`);
                 await contentApi.writeStreamFile(memberPath, content);
                 console.log(`[MemberReplacer] writeStreamFile succeeded`);
                 return true;
             } catch (e: any) {
-                console.log(`[MemberReplacer] writeStreamFile failed: ${e?.message}, falling back to base64`);
+                console.log(`[MemberReplacer] writeStreamFile failed: ${e?.message}`);
             }
         }
 
-        // Fallback: base64/printf via PASE
-        console.log(`[MemberReplacer] writing via base64: ${memberPath}`);
-        const b64 = Buffer.from(content).toString('base64');
-        const writeResult = await connection.sendCommand({
-            command: `printf '%s' "${b64}" | base64 -d > "${memberPath}"`,
+        // Write UTF-8 to a temp stream file, then CPYFRMSTMF to member (handles CCSID)
+        const tmpPath = `/tmp/fpfs_${Date.now()}_${Math.random().toString(36).slice(2)}.tmp`;
+        const b64 = Buffer.from(content, 'utf8').toString('base64');
+
+        console.log(`[MemberReplacer] writing temp stream file: ${tmpPath}`);
+        const writeTemp = await connection.sendCommand({
+            command: `printf '%s' "${b64}" | base64 -d > "${tmpPath}"`,
             environment: 'pase'
         });
-        console.log(`[MemberReplacer] base64 write exit code: ${writeResult.code}`);
-        if (writeResult.stderr) {
-            console.log(`[MemberReplacer] base64 write stderr: ${writeResult.stderr}`);
-        }
 
-        if (writeResult.code !== 0) {
-            if (writeResult.stderr?.includes('Permission denied')) {
-                throw new Error('Permission denied');
-            }
+        if (writeTemp.code !== 0) {
+            console.log(`[MemberReplacer] failed to write temp file: ${writeTemp.stderr}`);
             return false;
         }
+
+        // CPYFRMSTMF converts from UTF-8 stream file to native EBCDIC member
+        console.log(`[MemberReplacer] running CPYFRMSTMF from ${tmpPath} to ${memberPath}`);
+        const copyResult = await connection.sendCommand({
+            command: `system "CPYFRMSTMF FROMSTMF('${tmpPath}') TOMBR('${memberPath}') MBROPT(*REPLACE) STMFCCSID(1208)"`,
+            environment: 'pase'
+        });
+        console.log(`[MemberReplacer] CPYFRMSTMF exit code: ${copyResult.code}`);
+        if (copyResult.stderr) {
+            console.log(`[MemberReplacer] CPYFRMSTMF stderr: ${copyResult.stderr}`);
+        }
+
+        // Always clean up temp file
+        await connection.sendCommand({ command: `rm -f "${tmpPath}"`, environment: 'pase' });
+
+        if (copyResult.code !== 0) {
+            console.log(`[MemberReplacer] CPYFRMSTMF failed`);
+            return false;
+        }
+
         return true;
     }
 
