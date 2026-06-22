@@ -76,7 +76,11 @@ export class MemberReplacer {
                 };
             }
 
-            const lines = content.split('\n');
+            // Detect the original line ending so we can preserve it on write-back.
+            // IBM i SRCPF records use \r (CR) only when read via PASE cat.
+            const lineEnding = content.includes('\r\n') ? '\r\n' : content.includes('\r') ? '\r' : '\n';
+            console.log(`[MemberReplacer] detected line ending: ${JSON.stringify(lineEnding)}`);
+            const lines = content.split(/\r\n|\r|\n/);
             console.log(`[MemberReplacer] total lines in member: ${lines.length}`);
 
             const lineResults: OccurrenceResult[] = [];
@@ -124,7 +128,7 @@ export class MemberReplacer {
             console.log(`[MemberReplacer] anyPatched: ${anyPatched}`);
 
             if (anyPatched) {
-                const newContent = lines.join('\n');
+                const newContent = lines.join(lineEnding);
                 const writeOk = await MemberReplacer.writeMember(memberPath, newContent, connection);
                 console.log(`[MemberReplacer] write result: ${writeOk}`);
 
