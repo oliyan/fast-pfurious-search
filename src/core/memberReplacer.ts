@@ -28,7 +28,7 @@ export class MemberReplacer {
 
         const members = Array.from(memberLineMap.entries());
 
-        // Process members in parallel batches of 5 (same pattern as fastPfuriousExecutor.ts)
+        // Process members in parallel batches of 5
         for (let i = 0; i < members.length; i += BATCH_SIZE) {
             const batch = members.slice(i, i + BATCH_SIZE);
             await Promise.allSettled(
@@ -60,35 +60,23 @@ export class MemberReplacer {
         console.log(`[MemberReplacer] selected lines:`, Array.from(selectedLines));
 
         try {
-            // Read member content via cat
-            const readResult = await connection.sendCommand({
-                command: `cat "${memberPath}"`,
-                environment: 'pase'
-            });
+            const content = await MemberReplacer.readMember(memberPath, connection);
+            console.log(`[MemberReplacer] read content length: ${content?.length ?? 'null'} chars`);
 
-            console.log(`[MemberReplacer] cat exit code: ${readResult.code}`);
-            if (readResult.stderr) {
-                console.log(`[MemberReplacer] cat stderr: ${readResult.stderr}`);
-            }
-            console.log(`[MemberReplacer] cat stdout length: ${readResult.stdout?.length ?? 0} chars`);
-
-            if (readResult.code !== 0) {
-                const status = readResult.stderr?.includes('Permission denied')
-                    ? 'authority_error' as const
-                    : 'failed' as const;
-                console.log(`[MemberReplacer] read failed, status: ${status}`);
+            if (content === null) {
                 return {
                     memberPath,
                     lineResults: Array.from(selectedLines).map(lineNumber => ({
                         memberPath,
                         lineNumber,
-                        status,
-                        error: status === 'failed' ? (readResult.stderr || 'Failed to read member') : undefined
-                    }))
+                        status: 'failed' as const,
+                        error: 'Failed to read member'
+                    })),
+                    error: 'Failed to read member'
                 };
             }
 
-            const lines = readResult.stdout.split('\n');
+            const lines = content.split('\n');
             console.log(`[MemberReplacer] total lines in member: ${lines.length}`);
 
             const lineResults: OccurrenceResult[] = [];
@@ -104,7 +92,6 @@ export class MemberReplacer {
 
                 const original = lines[idx];
                 console.log(`[MemberReplacer] line ${lineNumber} content: ${JSON.stringify(original)}`);
-                console.log(`[MemberReplacer] searching for: ${JSON.stringify(request.searchTerm)} (caseSensitive=${request.caseSensitive})`);
 
                 const found = request.caseSensitive
                     ? original.includes(request.searchTerm)
@@ -137,37 +124,20 @@ export class MemberReplacer {
             console.log(`[MemberReplacer] anyPatched: ${anyPatched}`);
 
             if (anyPatched) {
-                // Base64-encode the modified content and write it back.
-                // NOTE: IBM i SRCPF records have a fixed 92-byte width (6 seq + 6 date + 80 data).
-                // Reading via `cat` and writing via `printf | base64 -d` operates on stream bytes,
-                // so trailing spaces in fixed-width source records may not be preserved after
-                // write-back. Verify behaviour on a live SRCPF before relying on this in production.
-                const b64 = Buffer.from(lines.join('\n')).toString('base64');
-                console.log(`[MemberReplacer] writing back to ${memberPath}, b64 length: ${b64.length}`);
+                const newContent = lines.join('\n');
+                const writeOk = await MemberReplacer.writeMember(memberPath, newContent, connection);
+                console.log(`[MemberReplacer] write result: ${writeOk}`);
 
-                const writeResult = await connection.sendCommand({
-                    command: `printf '%s' "${b64}" | base64 -d > "${memberPath}"`,
-                    environment: 'pase'
-                });
-
-                console.log(`[MemberReplacer] write exit code: ${writeResult.code}`);
-                if (writeResult.stderr) {
-                    console.log(`[MemberReplacer] write stderr: ${writeResult.stderr}`);
-                }
-
-                if (writeResult.code !== 0) {
-                    if (writeResult.stderr?.includes('Permission denied')) {
-                        console.log(`[MemberReplacer] write authority_error for ${memberPath}`);
-                        return {
-                            memberPath,
-                            lineResults: lineResults.map(r => ({
-                                ...r,
-                                status: 'authority_error' as const,
-                                error: undefined
-                            }))
-                        };
-                    }
-                    throw new Error(writeResult.stderr || 'Failed to write member');
+                if (!writeOk) {
+                    return {
+                        memberPath,
+                        lineResults: lineResults.map(r => ({
+                            ...r,
+                            status: 'failed' as const,
+                            error: 'Failed to write member'
+                        })),
+                        error: 'Failed to write member'
+                    };
                 }
             }
 
@@ -176,7 +146,7 @@ export class MemberReplacer {
 
         } catch (err: any) {
             console.error(`[MemberReplacer] caught error for ${memberPath}:`, err?.message);
-            if (err?.message?.includes('Permission denied')) {
+            if (err?.message?.includes('Permission denied') || err?.message?.includes('authority')) {
                 return {
                     memberPath,
                     lineResults: Array.from(selectedLines).map(lineNumber => ({
@@ -197,6 +167,82 @@ export class MemberReplacer {
                 error: err?.message || 'Unknown error'
             };
         }
+    }
+
+    /**
+     * Read member content. Tries the Code for IBM i content API first (handles CCSID),
+     * falls back to PASE cat command if unavailable.
+     */
+    private static async readMember(memberPath: string, connection: IBMiConnection): Promise<string | null> {
+        const content = connection.getContent();
+
+        // Try Code for IBM i content API (handles CCSID conversion properly)
+        if (content && typeof content.downloadStreamFile === 'function') {
+            try {
+                console.log(`[MemberReplacer] reading via downloadStreamFile: ${memberPath}`);
+                const data: string = await content.downloadStreamFile(memberPath);
+                console.log(`[MemberReplacer] downloadStreamFile returned ${data?.length ?? 'null'} chars`);
+                return data ?? null;
+            } catch (e: any) {
+                console.log(`[MemberReplacer] downloadStreamFile failed: ${e?.message}, falling back to cat`);
+            }
+        }
+
+        // Fallback: PASE cat
+        console.log(`[MemberReplacer] reading via cat: ${memberPath}`);
+        const readResult = await connection.sendCommand({
+            command: `cat "${memberPath}"`,
+            environment: 'pase'
+        });
+        console.log(`[MemberReplacer] cat exit code: ${readResult.code}, stdout length: ${readResult.stdout?.length ?? 0}`);
+        if (readResult.stderr) {
+            console.log(`[MemberReplacer] cat stderr: ${readResult.stderr}`);
+        }
+
+        if (readResult.code !== 0) {
+            return null;
+        }
+        return readResult.stdout;
+    }
+
+    /**
+     * Write member content. Tries the Code for IBM i content API first,
+     * falls back to base64/printf via PASE.
+     */
+    private static async writeMember(memberPath: string, content: string, connection: IBMiConnection): Promise<boolean> {
+        const contentApi = connection.getContent();
+
+        // Try Code for IBM i content API
+        if (contentApi && typeof contentApi.writeStreamFile === 'function') {
+            try {
+                console.log(`[MemberReplacer] writing via writeStreamFile: ${memberPath}`);
+                await contentApi.writeStreamFile(memberPath, content);
+                console.log(`[MemberReplacer] writeStreamFile succeeded`);
+                return true;
+            } catch (e: any) {
+                console.log(`[MemberReplacer] writeStreamFile failed: ${e?.message}, falling back to base64`);
+            }
+        }
+
+        // Fallback: base64/printf via PASE
+        console.log(`[MemberReplacer] writing via base64: ${memberPath}`);
+        const b64 = Buffer.from(content).toString('base64');
+        const writeResult = await connection.sendCommand({
+            command: `printf '%s' "${b64}" | base64 -d > "${memberPath}"`,
+            environment: 'pase'
+        });
+        console.log(`[MemberReplacer] base64 write exit code: ${writeResult.code}`);
+        if (writeResult.stderr) {
+            console.log(`[MemberReplacer] base64 write stderr: ${writeResult.stderr}`);
+        }
+
+        if (writeResult.code !== 0) {
+            if (writeResult.stderr?.includes('Permission denied')) {
+                throw new Error('Permission denied');
+            }
+            return false;
+        }
+        return true;
     }
 
     private static replaceAllCaseInsensitive(str: string, search: string, replace: string): string {
