@@ -67,7 +67,7 @@ export class MemberReplacer {
             let rows: any[];
             try {
                 rows = await content.runSQL(
-                    `SELECT SRCSEQ, SRCDTA FROM ${library}/${file} WHERE SRCMBR = '${member}' ORDER BY SRCSEQ`
+                    `SELECT SRCSEQ, SRCDTA FROM ${library}.${file} WHERE SRCMBR = '${member}' ORDER BY SRCSEQ`
                 );
             } catch (e: any) {
                 console.error(`[MemberReplacer] runSQL read failed:`, e?.message);
@@ -118,7 +118,7 @@ export class MemberReplacer {
                 const escapedContent = replaced.replace(/'/g, "''");
                 try {
                     await content.runSQL(
-                        `UPDATE ${library}/${file} SET SRCDTA = '${escapedContent}' WHERE SRCMBR = '${member}' AND SRCSEQ = ${srcseq}`
+                        `UPDATE ${library}.${file} SET SRCDTA = '${escapedContent}' WHERE SRCMBR = '${member}' AND SRCSEQ = ${srcseq}`
                     );
                     console.log(`[MemberReplacer] UPDATE succeeded for SRCSEQ=${srcseq}`);
                 } catch (e: any) {
