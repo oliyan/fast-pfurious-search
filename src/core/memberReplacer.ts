@@ -4,6 +4,8 @@ import { ConnectionManager } from './connectionManager';
 const BATCH_SIZE = 5;
 
 export class MemberReplacer {
+    private static nextAliasId = 0;
+
     static async executeReplace(
         request: ReplaceRequest,
         connection: IBMiConnection,
@@ -61,83 +63,98 @@ export class MemberReplacer {
             const { library, file, member } = ConnectionManager.parseMemberPath(memberPath);
             const content = connection.getContent();
 
-            // Use the Code for IBM i runSQL API — works with mapepire/JDBC,
-            // no separate CLI permissions required.
-            console.log(`[MemberReplacer] reading via runSQL`);
-            let rows: any[];
-            try {
-                rows = await content.runSQL(
-                    `SELECT SRCSEQ, SRCDTA FROM ${library}.${file} WHERE SRCMBR = '${member}' ORDER BY SRCSEQ`
-                );
-            } catch (e: any) {
-                console.error(`[MemberReplacer] runSQL read failed:`, e?.message);
-                return {
-                    memberPath,
-                    lineResults: Array.from(selectedLines).map(lineNumber => ({
-                        memberPath, lineNumber, status: 'failed' as const,
-                        error: e?.message || 'SQL read failed'
-                    })),
-                    error: e?.message || 'SQL read failed'
-                };
-            }
+            const aliasId = String(++MemberReplacer.nextAliasId).padStart(7, '0');
+            const aliasName = `PFA${aliasId}`;
 
-            console.log(`[MemberReplacer] runSQL read: ${rows.length} lines`);
+            // V7.3: CREATE OR REPLACE ALIAS not available — drop first, then create
+            try {
+                await content.runSQL(`DROP ALIAS QTEMP.${aliasName}`);
+            } catch {
+                // alias didn't exist — expected on first run
+            }
+            await content.runSQL(`CREATE ALIAS QTEMP.${aliasName} FOR ${library}.${file}(${member})`);
+            console.log(`[MemberReplacer] created alias QTEMP.${aliasName} for ${library}.${file}(${member})`);
 
             const lineResults: OccurrenceResult[] = [];
 
-            for (const lineNumber of selectedLines) {
-                const idx = lineNumber - 1;
-                if (idx < 0 || idx >= rows.length) {
-                    console.log(`[MemberReplacer] line ${lineNumber} out of range (member has ${rows.length} lines)`);
-                    lineResults.push({ memberPath, lineNumber, status: 'not_found' });
-                    continue;
-                }
-
-                const row = rows[idx];
-                const srcseq = row.SRCSEQ;
-                const original = String(row.SRCDTA ?? '').trimEnd();
-                console.log(`[MemberReplacer] line ${lineNumber} (SRCSEQ=${srcseq}): ${JSON.stringify(original)}`);
-
-                const found = request.caseSensitive
-                    ? original.includes(request.searchTerm)
-                    : original.toLowerCase().includes(request.searchTerm.toLowerCase());
-
-                console.log(`[MemberReplacer] found: ${found}`);
-
-                if (!found) {
-                    lineResults.push({ memberPath, lineNumber, status: 'not_found' });
-                    continue;
-                }
-
-                const replaced = request.caseSensitive
-                    ? original.split(request.searchTerm).join(request.replaceTerm)
-                    : MemberReplacer.replaceAllCaseInsensitive(original, request.searchTerm, request.replaceTerm);
-
-                console.log(`[MemberReplacer] line ${lineNumber} after replace: ${JSON.stringify(replaced)}`);
-
-                const escapedContent = replaced.replace(/'/g, "''");
+            try {
+                console.log(`[MemberReplacer] reading via runSQL`);
+                let rows: any[];
                 try {
-                    await content.runSQL(
-                        `UPDATE ${library}.${file} SET SRCDTA = '${escapedContent}' WHERE SRCMBR = '${member}' AND SRCSEQ = ${srcseq}`
+                    rows = await content.runSQL(
+                        `SELECT SRCSEQ, SRCDTA FROM QTEMP.${aliasName} ORDER BY SRCSEQ`
                     );
-                    console.log(`[MemberReplacer] UPDATE succeeded for SRCSEQ=${srcseq}`);
                 } catch (e: any) {
-                    console.error(`[MemberReplacer] UPDATE failed for SRCSEQ=${srcseq}:`, e?.message);
-                    const isAuth = e?.message?.toLowerCase().includes('authority') ||
-                                   e?.message?.toLowerCase().includes('permission');
-                    lineResults.push({
-                        memberPath, lineNumber,
-                        status: isAuth ? 'authority_error' as const : 'failed' as const,
-                        error: isAuth ? undefined : (e?.message || 'SQL update failed')
-                    });
-                    continue;
+                    console.error(`[MemberReplacer] runSQL read failed:`, e?.message);
+                    return {
+                        memberPath,
+                        lineResults: Array.from(selectedLines).map(lineNumber => ({
+                            memberPath, lineNumber, status: 'failed' as const,
+                            error: e?.message || 'SQL read failed'
+                        })),
+                        error: e?.message || 'SQL read failed'
+                    };
                 }
 
-                const status = replaced.trimEnd().length > 80
-                    ? 'replaced_with_truncation_risk' as const
-                    : 'replaced' as const;
+                console.log(`[MemberReplacer] runSQL read: ${rows.length} lines`);
 
-                lineResults.push({ memberPath, lineNumber, status });
+                for (const lineNumber of selectedLines) {
+                    const idx = lineNumber - 1;
+                    if (idx < 0 || idx >= rows.length) {
+                        console.log(`[MemberReplacer] line ${lineNumber} out of range (member has ${rows.length} lines)`);
+                        lineResults.push({ memberPath, lineNumber, status: 'not_found' });
+                        continue;
+                    }
+
+                    const row = rows[idx];
+                    const srcseq = row.SRCSEQ;
+                    const original = String(row.SRCDTA ?? '').trimEnd();
+                    console.log(`[MemberReplacer] line ${lineNumber} (SRCSEQ=${srcseq}): ${JSON.stringify(original)}`);
+
+                    const found = request.caseSensitive
+                        ? original.includes(request.searchTerm)
+                        : original.toLowerCase().includes(request.searchTerm.toLowerCase());
+
+                    console.log(`[MemberReplacer] found: ${found}`);
+
+                    if (!found) {
+                        lineResults.push({ memberPath, lineNumber, status: 'not_found' });
+                        continue;
+                    }
+
+                    const replaced = request.caseSensitive
+                        ? original.split(request.searchTerm).join(request.replaceTerm)
+                        : MemberReplacer.replaceAllCaseInsensitive(original, request.searchTerm, request.replaceTerm);
+
+                    console.log(`[MemberReplacer] line ${lineNumber} after replace: ${JSON.stringify(replaced)}`);
+
+                    const escapedContent = replaced.replace(/'/g, "''");
+                    try {
+                        await content.runSQL(
+                            `UPDATE QTEMP.${aliasName} SET SRCDTA = '${escapedContent}' WHERE SRCSEQ = ${srcseq}`
+                        );
+                        console.log(`[MemberReplacer] UPDATE succeeded for SRCSEQ=${srcseq}`);
+                    } catch (e: any) {
+                        console.error(`[MemberReplacer] UPDATE failed for SRCSEQ=${srcseq}:`, e?.message);
+                        const isAuth = e?.message?.toLowerCase().includes('authority') ||
+                                       e?.message?.toLowerCase().includes('permission');
+                        lineResults.push({
+                            memberPath, lineNumber,
+                            status: isAuth ? 'authority_error' as const : 'failed' as const,
+                            error: isAuth ? undefined : (e?.message || 'SQL update failed')
+                        });
+                        continue;
+                    }
+
+                    const status = replaced.trimEnd().length > 80
+                        ? 'replaced_with_truncation_risk' as const
+                        : 'replaced' as const;
+
+                    lineResults.push({ memberPath, lineNumber, status });
+                }
+            } finally {
+                await content.runSQL(`DROP ALIAS QTEMP.${aliasName}`).catch(() => {});
+                console.log(`[MemberReplacer] dropped alias QTEMP.${aliasName}`);
             }
 
             console.log(`[MemberReplacer] done with ${memberPath}:`, lineResults.map(r => `line ${r.lineNumber}=${r.status}`));
