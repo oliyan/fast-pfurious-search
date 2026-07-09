@@ -13,6 +13,7 @@ interface GroupedLine {
 interface GroupedMember {
     memberPath: string;
     memberName: string;
+    memberType: string;
     lines: GroupedLine[];
 }
 
@@ -99,10 +100,10 @@ export class ReplaceWindow {
     /**
      * Called after PFGREP completes. Groups hits (filtering context lines) and sends to webview.
      */
-    public populateResults(searchHits: SearchHit[]): void {
+    public async populateResults(searchHits: SearchHit[]): Promise<void> {
         if (!this.panel) { return; }
 
-        const grouped = this.groupHits(
+        const grouped = await this.groupHits(
             searchHits,
             this.currentSearchTerm,
             this.currentReplaceTerm
@@ -154,30 +155,68 @@ export class ReplaceWindow {
      * Filters out context lines (replaceWindow owns this decision, per Q2).
      * Uses ConnectionManager.parseMemberPath() to avoid duplicating QSYS path parsing.
      */
-    private groupHits(
+    private async groupHits(
         hits: SearchHit[],
         searchTerm: string,
         replaceTerm: string
-    ): GroupedLibrary[] {
+    ): Promise<GroupedLibrary[]> {
         const libraryMap = new Map<string, Map<string, GroupedMember[]>>();
+        const memberTypeMap = new Map<string, string>(); // memberPath -> sourceType
+
+        // Collect all unique members to query their types in one SQL call per library/file combo
+        const toQuery: { library: string; file: string; member: string; memberPath: string }[] = [];
 
         for (const hit of hits) {
-            // Filter to actual match lines only — context lines are not replaceable
             const matchLines = hit.lines.filter(l => !l.isContext);
             if (matchLines.length === 0) { continue; }
-
             let parsed: { library: string; file: string; member: string; fullPath: string };
             try {
                 parsed = ConnectionManager.parseMemberPath(hit.path);
             } catch {
-                continue; // Skip paths that don't match the expected QSYS format
+                continue;
+            }
+            if (!memberTypeMap.has(hit.path)) {
+                memberTypeMap.set(hit.path, '');
+                toQuery.push({ library: parsed.library, file: parsed.file, member: parsed.member, memberPath: hit.path });
+            }
+        }
+
+        // Fetch source types via SQL (one query for all members)
+        const connection = ConnectionManager.getConnection();
+        if (connection && toQuery.length > 0) {
+            try {
+                const inList = toQuery.map(m => `'${m.member}'`).join(',');
+                const { library, file } = toQuery[0];
+                const rows = await connection.runSQL(
+                    `SELECT SYSTEM_TABLE_MEMBER, SOURCE_TYPE FROM QSYS2.SYSPARTITIONSTAT ` +
+                    `WHERE SYSTEM_TABLE_SCHEMA = '${library}' AND SYSTEM_TABLE_NAME = '${file}' ` +
+                    `AND SYSTEM_TABLE_MEMBER IN (${inList})`
+                );
+                for (const row of rows) {
+                    const match = toQuery.find(m => m.member === String(row.SYSTEM_TABLE_MEMBER));
+                    if (match) {
+                        memberTypeMap.set(match.memberPath, String(row.SOURCE_TYPE || '').toLowerCase());
+                    }
+                }
+            } catch {
+                // source types will remain empty — display falls back to member name only
+            }
+        }
+
+        for (const hit of hits) {
+            const matchLines = hit.lines.filter(l => !l.isContext);
+            if (matchLines.length === 0) { continue; }
+            let parsed: { library: string; file: string; member: string; fullPath: string };
+            try {
+                parsed = ConnectionManager.parseMemberPath(hit.path);
+            } catch {
+                continue;
             }
 
             if (!libraryMap.has(parsed.library)) {
                 libraryMap.set(parsed.library, new Map());
             }
             const fileMap = libraryMap.get(parsed.library)!;
-
             if (!fileMap.has(parsed.file)) {
                 fileMap.set(parsed.file, []);
             }
@@ -192,6 +231,7 @@ export class ReplaceWindow {
             members.push({
                 memberPath: hit.path,
                 memberName: parsed.member,
+                memberType: memberTypeMap.get(hit.path) || '',
                 lines: groupedLines
             });
         }
@@ -557,6 +597,10 @@ export class ReplaceWindow {
         // --- Build the results tree from grouped data ---
         function buildTree(grouped) {
             allCheckboxes = [];
+            replacing = false;
+            confirmBtn.textContent = 'Confirm Replace';
+            confirmBtn.disabled = true;
+            document.getElementById('summaryBar').innerHTML = '';
             const tree = document.getElementById('resultsTree');
             tree.innerHTML = '';
             let truncationCount = 0;
@@ -676,6 +720,13 @@ export class ReplaceWindow {
                         const memberLabel = document.createElement('span');
                         memberLabel.className = 'member-label';
                         memberLabel.textContent = member.memberName;
+
+                        if (member.memberType) {
+                            const memberTypeSpan = document.createElement('span');
+                            memberTypeSpan.className = 'tree-node-count';
+                            memberTypeSpan.textContent = '.' + member.memberType;
+                            memberLabel.appendChild(memberTypeSpan);
+                        }
 
                         const memberCount = document.createElement('span');
                         memberCount.className = 'tree-node-count';

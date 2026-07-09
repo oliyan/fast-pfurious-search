@@ -110,63 +110,31 @@ export class ConnectionManager {
                 throw new Error('No IBM i connection available');
             }
 
-            // Query the actual member info to get the real source type
-            // This is exactly what Code for IBM i does internally
+            // Query source type directly from system catalog via SQL
+            let openPath: string;
             try {
-                console.log('Querying member info for source type...');
-                
-                const memberInfo = await connection.getContent().getMemberInfo(
-                    pathParts.library, 
-                    pathParts.file, 
-                    pathParts.member
+                const rows = await connection.runSQL(
+                    `SELECT SOURCE_TYPE FROM QSYS2.SYSPARTITIONSTAT ` +
+                    `WHERE SYSTEM_TABLE_SCHEMA = '${pathParts.library}' ` +
+                    `AND SYSTEM_TABLE_NAME = '${pathParts.file}' ` +
+                    `AND SYSTEM_TABLE_MEMBER = '${pathParts.member}'`
                 );
-
-                console.log('Member info result:', memberInfo);
-
-                if (memberInfo) {
-                    // Use the real source type from the system, not guessed from file name
-                    const realSourceType = memberInfo.extension || 'MBR';
-                    const correctPath = `${pathParts.library}/${pathParts.file}/${pathParts.member}.${realSourceType}`;
-                    
-                    console.log('Using correct path with real source type:', correctPath);
-
-                    // Open with the correct source type - this should give proper syntax highlighting
-                    await vscode.commands.executeCommand(
-                        'code-for-ibmi.openWithDefaultMode',
-                        { path: correctPath },
-                        undefined // Edit mode
-                    );
-
-                    console.log('✅ Successfully opened member with correct source type');
-
-                } else {
-                    // Fallback: if member info query fails, use simple path without extension
-                    console.log('Member info not found, using simple path fallback');
-                    const simplePath = `${pathParts.library}/${pathParts.file}/${pathParts.member}`;
-                    
-                    await vscode.commands.executeCommand(
-                        'code-for-ibmi.openWithDefaultMode',
-                        { path: simplePath },
-                        undefined
-                    );
-
-                    console.log('✅ Opened with simple path fallback');
-                }
-
-            } catch (memberInfoError: any) {
-                console.log('Member info query failed, trying simple path:', memberInfoError.message);
-                
-                // Fallback: use simple path without extension
-                const simplePath = `${pathParts.library}/${pathParts.file}/${pathParts.member}`;
-                
-                await vscode.commands.executeCommand(
-                    'code-for-ibmi.openWithDefaultMode',
-                    { path: simplePath },
-                    undefined
-                );
-
-                console.log('✅ Opened with simple path after member info failure');
+                const sourceType = rows.length > 0 ? String(rows[0].SOURCE_TYPE || '').trim() : '';
+                openPath = sourceType
+                    ? `${pathParts.library}/${pathParts.file}/${pathParts.member}.${sourceType}`
+                    : `${pathParts.library}/${pathParts.file}/${pathParts.member}`;
+                console.log(`Source type resolved: '${sourceType}', opening: ${openPath}`);
+            } catch (e: any) {
+                console.log(`Source type query failed (${e?.message}), using simple path`);
+                openPath = `${pathParts.library}/${pathParts.file}/${pathParts.member}`;
             }
+
+            await vscode.commands.executeCommand(
+                'code-for-ibmi.openWithDefaultMode',
+                { path: openPath },
+                undefined
+            );
+            console.log(`✅ Opened member: ${openPath}`);
 
             // Navigate to specific line if provided
             if (lineNumber && lineNumber > 0) {
