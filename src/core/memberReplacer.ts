@@ -61,18 +61,16 @@ export class MemberReplacer {
 
         try {
             const { library, file, member } = ConnectionManager.parseMemberPath(memberPath);
-            const content = connection.getContent();
-
             const aliasId = String(++MemberReplacer.nextAliasId).padStart(7, '0');
             const aliasName = `PFA${aliasId}`;
 
             // V7.3: CREATE OR REPLACE ALIAS not available — drop first, then create
             try {
-                await content.runSQL(`DROP ALIAS QTEMP.${aliasName}`);
+                await connection.runSQL(`DROP ALIAS QTEMP.${aliasName}`);
             } catch {
                 // alias didn't exist — expected on first run
             }
-            await content.runSQL(`CREATE ALIAS QTEMP.${aliasName} FOR ${library}.${file}(${member})`);
+            await connection.runSQL(`CREATE ALIAS QTEMP.${aliasName} FOR ${library}.${file}(${member})`);
             console.log(`[MemberReplacer] created alias QTEMP.${aliasName} for ${library}.${file}(${member})`);
 
             const lineResults: OccurrenceResult[] = [];
@@ -81,7 +79,7 @@ export class MemberReplacer {
                 console.log(`[MemberReplacer] reading via runSQL`);
                 let rows: any[];
                 try {
-                    rows = await content.runSQL(
+                    rows = await connection.runSQL(
                         `SELECT SRCSEQ, SRCDTA FROM QTEMP.${aliasName} ORDER BY SRCSEQ`
                     );
                 } catch (e: any) {
@@ -128,10 +126,10 @@ export class MemberReplacer {
 
                     console.log(`[MemberReplacer] line ${lineNumber} after replace: ${JSON.stringify(replaced)}`);
 
-                    const escapedContent = replaced.replace(/'/g, "''");
                     try {
-                        await content.runSQL(
-                            `UPDATE QTEMP.${aliasName} SET SRCDTA = '${escapedContent}' WHERE SRCSEQ = ${srcseq}`
+                        await connection.runSQL(
+                            `UPDATE QTEMP.${aliasName} SET SRCDTA = ? WHERE SRCSEQ = ${srcseq}`,
+                            { bindings: [replaced] }
                         );
                         console.log(`[MemberReplacer] UPDATE succeeded for SRCSEQ=${srcseq}`);
                     } catch (e: any) {
@@ -153,7 +151,7 @@ export class MemberReplacer {
                     lineResults.push({ memberPath, lineNumber, status });
                 }
             } finally {
-                await content.runSQL(`DROP ALIAS QTEMP.${aliasName}`).catch(() => {});
+                await connection.runSQL(`DROP ALIAS QTEMP.${aliasName}`).catch(() => {});
                 console.log(`[MemberReplacer] dropped alias QTEMP.${aliasName}`);
             }
 

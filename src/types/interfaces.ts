@@ -74,6 +74,7 @@ export interface CodeForIBMiApi {
 export interface IBMiConnection {
     getConfig(): any;
     getContent(): any;
+    runSQL(statements: string | string[], options?: { bindings?: any[], rows?: number }): Promise<any[]>;
     sendCommand(options: {
         command: string;
         environment?: 'ile' | 'qsh' | 'pase';
