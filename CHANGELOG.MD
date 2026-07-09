@@ -5,6 +5,34 @@ All notable changes to the "PFGREP Search for IBM i" extension will be documente
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-07-09
+
+### 🔄 Search & Replace — Mass Source Member Updates
+
+### Added
+- **Search & Replace mode** — Toggle the replace field in the search dialog to enable replace alongside search
+- **Dry-run preview window** — All matches shown in a Library → Source File → Member → Line tree before any writes occur
+- **Granular occurrence selection** — Per-line checkboxes let you include or exclude individual occurrences before confirming
+- **Truncation risk detection** — Lines where the replacement is longer than the original are flagged with ⚠ (80-char SRCDTA field limit)
+- **Delete mode** — Leave the replace field empty to delete all matched occurrences; requires an explicit acknowledgement checkbox before proceeding
+- **Live streaming results** — Status icons update per member in real-time as replacements are written (✅ replaced, ⚠✅ replaced with truncation risk, 🔄 skipped, ❌ failed)
+- **Authority error handling** — Distinct error status for members where the user lacks `*CHANGE` authority
+- **Replace summary** — Final count of replaced / skipped / failed occurrences on completion
+- **Member type display** — Replace preview window now shows `MEMBERNAME.sourcetype` (e.g. `BACKITUP.rpgle`) using a live SQL query
+- **Syntax-highlighted member open** — Clicking a search result in the tree view now opens the member with its correct source type, enabling syntax highlighting in VS Code
+
+### Technical Changes
+- Added `src/core/memberReplacer.ts` — Replace engine using SQL ALIASes scoped to QTEMP for correct per-member read/write access (V7.3 compatible; uses DROP + CREATE pattern since `CREATE OR REPLACE ALIAS` requires V7.4)
+- Added `src/ui/replaceWindow.ts` — WebviewPanel for the preview tree and live results UI
+- SQL ALIAS pattern: `CREATE ALIAS QTEMP.PFAxxxxxxx FOR library.file(member)` avoids job-context issues and correctly scopes member access for both SELECT and UPDATE
+- Unique alias names via static counter (`PFA0000001`, `PFA0000002`, ...) prevent collisions when up to 5 members are processed in parallel
+- Parameterized `UPDATE` using `?` binding avoids SQL string-splitting on semicolons present in source content
+- `QSYS2.SYSPARTITIONSTAT` used for member source-type lookup — works without `getMemberInfo()` which is absent on older Code for IBM i versions
+- Added `ReplaceRequest`, `OccurrenceSelection`, `OccurrenceResult`, `ReplaceResult` interfaces to `src/types/interfaces.ts`
+- Added `runSQL()` to the `IBMiConnection` interface to expose parameterized query support
+
+---
+
 ## [1.1.1] - 2025-01-11
 
 ### 🎯 Major UX Refinements - Tab-Based Search & Granular Location Support
@@ -181,7 +209,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable result window limits
 - Search progress indicators
 
-### [1.2.0] - Planned
+### [1.3.0] - Planned
 - Source file granularity in library selection
 - CSV export format option
 - Search result filtering and highlighting

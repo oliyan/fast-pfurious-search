@@ -141,6 +141,110 @@ Context lines appear **dimmed** so you can easily distinguish them from actual m
 
 ---
 
+## 🔄 Search & Replace
+
+Because sometimes finding the problem isn't enough — you also need to fix it. Across 47 members. Before the daily build runs.
+
+### How to Enable Replace Mode
+
+Press `Ctrl+Alt+F` (`Cmd+Alt+F` on Mac) to open the search dialog, then click the **Replace** toggle button in the search panel. A replace field appears below the search term.
+
+![Search & Replace Toggle](screenshots/replace-dialog.png)
+*Toggle the Replace button in the search dialog to reveal the replace field*
+
+Fill in:
+- **Search Term** — what to find (same as a regular search)
+- **Replace With** — what to replace it with
+
+Then click **Search & Replace** to preview all matches before anything is written to your system.
+
+> ⚠️ **Delete Mode:** Leave the replace field **empty** to **delete** every matched occurrence. You'll be asked to tick an acknowledgement checkbox before the preview runs — because "I accidentally deleted it from 76 members" is not a fun support ticket to raise.
+
+---
+
+### The Preview Window
+
+Before a single byte changes on your IBM i, a dedicated preview panel opens showing every match organised by **Library → Source File → Member → Line**.
+
+![Replace Preview Window](screenshots/replace-preview.png)
+*Review every occurrence before committing — deselect anything you're unsure about*
+
+**What you can do here:**
+
+| Control | What it does |
+|---------|-------------|
+| **Select All** checkbox | Check or uncheck every occurrence in one click |
+| **Member-level** checkbox | Select or deselect all lines within a member |
+| **Line-level** checkbox | Include or exclude individual occurrences |
+| **⚠ icon** on a line | That replacement may exceed the 80-character SRCDTA record length |
+| **Confirm Replace** button | Writes the selected replacements to your IBM i — no further confirmation |
+
+> ⚠️ **No undo.** IBM i source members have no native undo. Once you click Confirm Replace, changes are written directly to your source physical file members. Deselect anything you're not sure about before confirming.
+
+---
+
+### Truncation Risk
+
+IBM i source physical file records have a fixed **80-character** SRCDTA field. If your replacement string is longer than the original, the resulting line may silently truncate.
+
+Lines flagged with **⚠** are ones where this risk exists. You can still replace them — the warning is informational. But if column position matters (fixed-format RPG, anyone?), review those lines manually after replacing.
+
+---
+
+### Reading the Results
+
+After clicking Confirm Replace, status icons stream in live as each member is processed:
+
+| Icon | Meaning |
+|------|---------|
+| ✅ | Replaced successfully |
+| ⚠✅ | Replaced, but result may exceed 80-char record length |
+| 🔄 | Skipped — search term not found at this line (source may have changed since the search ran) |
+| ❌ | Failed — authority error or unexpected error |
+
+![Replace Results](screenshots/replace-results.png)
+*Status icons update per member in real-time as replacements are written*
+
+A summary bar shows the final tally on completion:
+
+```
+Replace complete — 42 replaced | 0 skipped | 0 failed
+```
+
+---
+
+### Common Replace Use Cases
+
+**1. Update a copyright notice across all source members**
+```
+Search:  Copyright 2023 Programmers.io
+Replace: Copyright 2024 Programmers.io
+Location: MYLIB
+```
+
+**2. Rename a field reference globally**
+```
+Search:  CUSTNO
+Replace: CUSTOMER_ID
+Location: MYLIB/QRPGLESRC/*
+```
+
+**3. Delete a deprecated comment marker**
+```
+Search:  // TODO: REMOVE BEFORE PROD
+Replace: (leave empty)
+Location: DEVLIB
+```
+
+**4. Swap a hardcoded library reference**
+```
+Search:  QTEMP/WORKTBL
+Replace: PRODLIB/WORKTBL
+Location: BATCHLIB,SVCLIB
+```
+
+---
+
 ## ⚙️ Search Options Explained
 
 ### Normal Search (Default)
